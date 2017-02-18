@@ -1,0 +1,18 @@
+plugins { id 'com.github.jk1.dependency-license-report' version '0.3.8' }
+
+group = "se.tfiskgul.mux2fs"
+
+subprojects {
+	repositories {
+		mavenCentral()
+		maven { url "http://repository.sonatype.org/content/groups/public/" }
+		jcenter()
+	}
+	apply plugin: 'eclipse'
+
+	eclipse {
+		project {
+			name = rootProject.group + "." + name
+		}
+	}
+}
