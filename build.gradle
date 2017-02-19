@@ -15,4 +15,11 @@ subprojects {
 			name = rootProject.group + "." + name
 		}
 	}
+
+	tasks.withType(FindBugs) {
+		reports {
+			xml.enabled = false
+			html.enabled = true
+		}
+	}
 }
