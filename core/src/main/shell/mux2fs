@@ -1,0 +1,4 @@
+#!/bin/sh
+
+echo java -cp "/usr/lib/mux2fs/lib/*" se.tfiskgul.mux2fs.Main $@
+java -cp "/usr/lib/mux2fs/lib/*" se.tfiskgul.mux2fs.Main $@

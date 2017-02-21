@@ -15,3 +15,33 @@ dependencies {
 	testCompile group: 'junit', name: 'junit', version: '4.+'
 	testCompile group: 'org.assertj', name: 'assertj-core', version: '3.+'
 }
+
+sourceSets { shell }
+
+sourceSets {
+	shell {
+		resources { srcDirs = ['src/main/shell'] }
+	}
+}
+
+task copyInstallationTree(dependsOn: [assemble]) {
+	inputs.files configurations.runtime
+	inputs.files jar
+	inputs.files sourceSets.shell.resources
+	outputs.dir "$buildDir/output/install"
+	doLast {
+		copy {
+			from configurations.runtime
+			from jar
+			into "$buildDir/output/install/usr/lib/mux2fs/lib"
+		}
+		copy {
+			from sourceSets.shell.resources
+			into "$buildDir/output/install/usr/bin"
+		}
+	}
+}
+
+task deploy(type: Exec, dependsOn: [copyInstallationTree]) {
+	commandLine "sudo", "rsync", "-Kr", "$buildDir/output/install/", "/"
+}
