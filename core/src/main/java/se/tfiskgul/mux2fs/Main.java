@@ -28,17 +28,24 @@ import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import se.tfiskgul.mux2fs.CommandLineArguments.Strict;
+
 public class Main {
 
 	private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
 	public static void main(String[] args)
 			throws IOException {
-		CommandLineArguments parsed = CommandLineArguments.parse(args);
-		if (parsed.isHelp()) {
-			System.out.println(parsed.getHelp());
-			System.exit(0);
+		try {
+			Strict parsed = CommandLineArguments.parse(args);
+			if (parsed.isHelp()) {
+				System.out.println(parsed.getHelp());
+				System.exit(0);
+			}
+			parsed.validate();
+		} catch (Exception e) {
+			System.err.println(CommandLineArguments.getUsage());
+			throw e;
 		}
-		parsed.validate();
 	}
 }

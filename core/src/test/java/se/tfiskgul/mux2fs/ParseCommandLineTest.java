@@ -34,6 +34,7 @@ import org.junit.rules.ExpectedException;
 import com.beust.jcommander.ParameterException;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import se.tfiskgul.mux2fs.CommandLineArguments.Strict;
 
 public class ParseCommandLineTest {
 
@@ -49,25 +50,59 @@ public class ParseCommandLineTest {
 	@Test
 	@SuppressFBWarnings("DMI_HARDCODED_ABSOLUTE_FILENAME")
 	public void testParseMandatory() {
-		CommandLineArguments result = CommandLineArguments.parse(array("--mountpoint", "/tmp/mnt", "--source", "/mnt/source", "--tempdir", "/tmp/dir"));
-		assertThat(result.getMountPoint()).isEqualTo(Paths.get("/tmp/mnt"));
+		Strict result = CommandLineArguments.parse(array("--target", "/tmp/mnt", "--source", "/mnt/source", "--tempdir", "/tmp/dir"));
+		assertThat(result.getTarget()).isEqualTo(Paths.get("/tmp/mnt"));
 		assertThat(result.getSource()).isEqualTo(Paths.get("/mnt/source"));
 		assertThat(result.getTempDir()).isEqualTo(Paths.get("/tmp/dir"));
 	}
 
 	@Test
 	public void testHelp() {
-		CommandLineArguments result = CommandLineArguments.parse(array("-h"));
+		Strict result = CommandLineArguments.parse(array("-h"));
 		assertThat(result.isHelp()).isTrue();
 	}
 
 	@Test
 	@SuppressFBWarnings("DMI_HARDCODED_ABSOLUTE_FILENAME")
 	public void testValidateDirectoriesExists() {
-		CommandLineArguments result = CommandLineArguments
-				.parse(array("--mountpoint", "/total/nonsense", "--source", "/total/nonsense", "--tempdir", "/total/nonsense"));
+		Strict result = CommandLineArguments.parse(array("--target", "/total/nonsense", "--source", "/total/nonsense", "--tempdir", "/total/nonsense"));
 		exception.expect(IllegalArgumentException.class);
 		result.validate();
+	}
+
+	@Test
+	public void testParseOptions() {
+		Strict result = CommandLineArguments.parse(array( //
+				"--target", "/tmp/mnt", "--source", "/mnt/source", "--tempdir", "/tmp/dir", //
+				"-o", "param1=one,param2=two,param3=long param,ro"));
+		assertThat(result.getPassThroughOptions()).containsExactlyInAnyOrder("param1=one", "param2=two", "param3=long param", "ro");
+	}
+
+	@Test
+	public void testParseMultipleOptions() {
+		Strict result = CommandLineArguments.parse(array( //
+				"--target", "/tmp/mnt", "--source", "/mnt/source", "--tempdir", "/tmp/dir", //
+				"-o", "param1=one,param2=two", "-o", "param3=long param,ro"));
+		assertThat(result.getPassThroughOptions()).containsExactlyInAnyOrder("param1=one", "param2=two", "param3=long param", "ro");
+	}
+
+	@Test
+	public void testFstabStyleManyOptions() {
+		Strict result = CommandLineArguments.parse(array("source", "target", "-o", "rw", "-o", "tempdir=sometempdirpath,one=1,two=2", "-o", "three=3"));
+		assertThat(result.getSource()).isEqualTo(Paths.get("source"));
+		assertThat(result.getTarget()).isEqualTo(Paths.get("target"));
+		assertThat(result.getTempDir()).isEqualTo(Paths.get("sometempdirpath"));
+		assertThat(result.getPassThroughOptions()).containsExactlyInAnyOrder("one=1", "two=2", "three=3");
+		assertThat(result.getMux2fsOptions().isRw()).isTrue();
+	}
+
+	@Test
+	public void testArgumentsInFstabStyle() {
+		Strict result = CommandLineArguments.parse(array("source", "target", "-o", "tempdir=sometempdirpath"));
+		assertThat(result.getSource()).isEqualTo(Paths.get("source"));
+		assertThat(result.getTarget()).isEqualTo(Paths.get("target"));
+		assertThat(result.getTempDir()).isEqualTo(Paths.get("sometempdirpath"));
+		assertThat(result.getPassThroughOptions()).isEmpty();
 	}
 
 	@SuppressWarnings("unchecked")

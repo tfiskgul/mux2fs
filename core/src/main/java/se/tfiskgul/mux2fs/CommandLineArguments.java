@@ -23,69 +23,160 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs;
 
+import static java.util.stream.Collectors.toList;
+
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
+import com.beust.jcommander.Parameters;
+import com.google.common.collect.ImmutableList;
 
-public class CommandLineArguments {
+public abstract class CommandLineArguments {
 
-	private static final String USAGE = "Usage: mux2fs source mountpoint [options] \nTry `mux2fs -h' or `mux2fs --help' for more information.";
-	//
-	@Parameter(names = "--source", description = "Source directory to mirror", required = true)
-	private Path source;
-	@Parameter(names = "--mountpoint", description = "Mount point", required = true)
-	private Path mountPoint;
-	@Parameter(names = "--tempdir", description = "Temporary directory under which to mux files", required = true)
-	private Path tempDir;
-	@Parameter(names = { "-h", "--help" }, description = "Help", help = true)
-	private boolean help = false;
+	private static final String USAGE = "" //
+			+ "Usage: mux2fs source mountpoint -o tempdir=<tempdir>,[options]\n" //
+			+ "Usage: mux2fs --source source --target mountpoint --tempdir tempdir [options]\n" //
+			+ "Try `mux2fs -h' or `mux2fs --help' for more information.";
 
-	public Path getTempDir() {
-		return tempDir;
+	// TODO: Add version argument
+	private CommandLineArguments() {
 	}
 
-	public Path getSource() {
-		return source;
-	}
-
-	public Path getMountPoint() {
-		return mountPoint;
-	}
-
-	public String getUsage() {
+	public static String getUsage() {
 		return USAGE;
 	}
 
-	public boolean isHelp() {
-		return help;
+	private static class Shared {
+		@Parameter(names = "--source", description = "Source directory to mirror", required = true)
+		private Path source;
+		@Parameter(names = "--target", description = "Mount point", required = true)
+		private Path target;
+		@Parameter(names = { "-h", "--help" }, description = "Help", help = true)
+		private boolean help = false;
+
+		public Path getSource() {
+			return source;
+		}
+
+		public Path getTarget() {
+			return target;
+		}
+
+		public boolean isHelp() {
+			return help;
+		}
+
+		public String getHelp() {
+			return USAGE; // TODO: Help chapter
+		}
 	}
 
-	public String getHelp() {
-		return "FIXME"; // FIXME: Halp!
+	public static class Strict extends Shared {
+
+		@Parameter(names = "--tempdir", description = "Temporary directory under which to mux files", required = true)
+		private Path tempDir;
+		@Parameter(names = "-o", description = "Options", required = false)
+		private List<String> options;
+		private Options mux2fsOptions;
+		private List<String> passThroughOptions;
+
+		public Path getTempDir() {
+			return tempDir;
+		}
+
+		public void validate() {
+			validateDirectoryExists(getSource());
+			validateDirectoryExists(getTarget());
+			validateDirectoryExists(getTempDir());
+		}
+
+		public Options getMux2fsOptions() {
+			return mux2fsOptions;
+		}
+
+		public List<String> getPassThroughOptions() {
+			return passThroughOptions;
+		}
 	}
 
-	public void validate() {
-		validateDirectoryExists(source);
-		validateDirectoryExists(mountPoint);
-		validateDirectoryExists(tempDir);
+	private static class Lax extends Shared {
+		@Parameter(names = "--tempdir", description = "Temporary directory under which to mux files", required = false)
+		private Path tempDir;
+		@Parameter(names = "-o", description = "Options", required = true)
+		private List<String> options;
 	}
 
-	private void validateDirectoryExists(Path directory) {
+	@Parameters(separators = "=")
+	public static class Options {
+
+		@Parameter(names = "-rw")
+		private boolean rw;
+		@Parameter(names = "-tempdir")
+		private String tempdir;
+
+		public boolean isRw() {
+			return rw;
+		}
+	}
+
+	public static Strict parse(String[] argsArray) {
+		List<String> args = Arrays.asList(argsArray);
+		Strict strict = CommandLineArguments.tryStrictParse(args).orElseGet(() -> parseFromLax(args));
+		if (strict.options != null) {
+			Options options = new Options();
+			JCommander parseIgnoreUnknown = parseIgnoreUnknown(options, strict.options.stream().map(o -> "-" + o).collect(toList()));
+			strict.mux2fsOptions = options;
+			strict.passThroughOptions = parseIgnoreUnknown.getUnknownOptions().stream().map(o -> o.substring(1, o.length())).collect(toList());
+		}
+		return strict;
+	}
+
+	private static void validateDirectoryExists(Path directory) {
 		if (!directory.toFile().isDirectory()) {
 			throw new IllegalArgumentException(directory + " doesn't exist, or is not a directory!");
 		}
 	}
 
-	static CommandLineArguments parse(String[] args) {
-		CommandLineArguments arguments = new CommandLineArguments();
+	private static Optional<CommandLineArguments.Strict> tryStrictParse(List<String> args) {
+		Strict strict = new Strict();
 		try {
-			new JCommander(arguments, args);
+			parse(strict, args);
+			return Optional.of(strict);
 		} catch (ParameterException e) {
-			System.err.println(arguments.getUsage());
-			throw e;
+			return Optional.empty();
 		}
-		return arguments;
+	}
+
+	private static Strict parseFromLax(List<String> args) {
+		if (args.size() < 3) {
+			throw new ParameterException("Must supply at least 3 parameters!");
+		}
+		List<String> withSourceAndTarget = ImmutableList.<String> builder().add("--source").add(args.get(0)).add("--target").add(args.get(1))
+				.addAll(args.stream().skip(2).iterator()).build();
+		Lax lax = new Lax();
+		parse(lax, withSourceAndTarget);
+		Options options = new Options();
+		parseIgnoreUnknown(options, lax.options.stream().map(o -> "-" + o).collect(toList()));
+		List<String> withTempDir = ImmutableList.<String> builder().addAll(withSourceAndTarget).add("--tempdir").add(options.tempdir).build();
+		Strict strict = new Strict();
+		parse(strict, withTempDir);
+		return strict;
+	}
+
+	private static JCommander parse(Object obj, List<String> args) {
+		return new JCommander(obj, args.toArray(new String[args.size()]));
+	}
+
+	private static JCommander parseIgnoreUnknown(Object obj, List<String> args) {
+		JCommander jCommander = new JCommander();
+		jCommander.setAcceptUnknownOptions(true);
+		jCommander.addObject(obj);
+		jCommander.parse(args.toArray(new String[args.size()]));
+		return jCommander;
 	}
 }
