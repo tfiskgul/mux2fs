@@ -28,7 +28,12 @@ import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
+
 import se.tfiskgul.mux2fs.CommandLineArguments.Strict;
+import se.tfiskgul.mux2fs.fs.base.FileSystemWrapper;
+import se.tfiskgul.mux2fs.fs.mirror.MirrorFs;
 
 public class Main {
 
@@ -37,15 +42,33 @@ public class Main {
 	public static void main(String[] args)
 			throws IOException {
 		try {
-			Strict parsed = CommandLineArguments.parse(args);
-			if (parsed.isHelp()) {
-				System.out.println(parsed.getHelp());
+			Strict arguments = CommandLineArguments.parse(args);
+			if (arguments.isHelp()) {
+				System.out.println(arguments.getHelp());
 				System.exit(0);
 			}
-			parsed.validate();
+			arguments.validate();
+			mount(arguments);
 		} catch (Exception e) {
 			System.err.println(CommandLineArguments.getUsage());
 			throw e;
 		}
+	}
+
+	private static void mount(Strict arguments) {
+		MirrorFs mirrorFs = new MirrorFs(arguments.getSource());
+		FileSystemWrapper wrapped = new FileSystemWrapper(mirrorFs);
+		try {
+			logger.debug("Fuse options {}", arguments.getPassThroughOptions());
+			wrapped.mount(arguments.getTarget(), true, false, getFuseOptions(arguments));
+		} finally {
+			wrapped.umount();
+		}
+	}
+
+	private static String[] getFuseOptions(Strict arguments) {
+		Builder<String> builder = ImmutableList.<String> builder();
+		arguments.getPassThroughOptions().forEach((option) -> builder.add("-o").add(option));
+		return builder.build().toArray(new String[] {});
 	}
 }
