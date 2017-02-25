@@ -115,14 +115,14 @@ public class MirrorFs extends DecoupledFileSystem {
 			logger.trace("", e);
 		}
 		try {
-			filler.add("..", fileSystem.getPath(mirroredRoot, path, ".."));
+			filler.add("..", real(path, ".."));
 		} catch (IOException e) {
 			logger.trace("", e);
 		}
 		return realPath;
 	}
 
-	protected Path real(String virtual) {
+	protected Path real(String... virtual) {
 		return fileSystem.getPath(mirroredRoot, virtual);
 	}
 
