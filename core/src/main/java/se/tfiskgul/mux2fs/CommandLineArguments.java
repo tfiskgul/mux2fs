@@ -52,6 +52,7 @@ public abstract class CommandLineArguments {
 	}
 
 	private static class Shared {
+
 		@Parameter(names = "--source", description = "Source directory to mirror", required = true)
 		private Path source;
 		@Parameter(names = "--target", description = "Mount point", required = true)
