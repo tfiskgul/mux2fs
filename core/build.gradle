@@ -11,6 +11,7 @@ dependencies {
 	compile group: 'com.google.guava', name: 'guava', version: '21.+'
 	compile group: 'com.beust', name: 'jcommander', version: '1.60'
 	compile group: 'com.google.code.findbugs', name: 'annotations', version: '3.0.0'
+	compile group: 'com.aol.simplereact', name: 'cyclops-react', version: '2.0.+'
 
 	testCompile group: 'junit', name: 'junit', version: '4.+'
 	testCompile group: 'org.assertj', name: 'assertj-core', version: '3.+'

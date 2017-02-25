@@ -29,10 +29,12 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import cyclops.control.Try;
 import ru.serce.jnrfuse.ErrorCodes;
 import se.tfiskgul.mux2fs.fs.decoupling.DecoupledFileSystem;
 import se.tfiskgul.mux2fs.fs.decoupling.DirectoryFiller;
@@ -74,7 +76,7 @@ public class MirrorFs extends DecoupledFileSystem {
 		Path realPath = readdirInitial(path, filler);
 		try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(realPath)) {
 			for (Path entry : directoryStream) {
-				if (!fillStats(filler, entry)) {
+				if (!add(filler, entry)) {
 					return 0;
 				}
 			}
@@ -87,13 +89,22 @@ public class MirrorFs extends DecoupledFileSystem {
 		return 0;
 	}
 
-	protected boolean fillStats(DirectoryFiller filler, Path entry) {
-		try {
-			return filler.add(entry.getFileName().toString(), entry) == 0;
-		} catch (IOException e) { // Ignore, files might get deleted / renamed while iterating
-			logger.trace("", e);
-		}
-		return true;
+	/**
+	 * Adds stats for specified entry into the directory enumeration.
+	 *
+	 * @param filler
+	 *            The directory enumeration
+	 * @param entry
+	 *            The path to add
+	 * @return false only on enumeration resource exhaustion. Any IOException is ignored, logged, and returns true.
+	 */
+	protected boolean add(DirectoryFiller filler, Path entry) {
+		return getFileName(entry).flatMap(fileName -> Try.withCatch(() -> filler.add(fileName, entry) == 0, IOException.class, NoSuchFileException.class) //
+				.onFail(e -> logger.trace("", e)).toOptional()).orElse(true); // Ignore, files might get deleted / renamed while iterating
+	}
+
+	private Optional<String> getFileName(Path entry) {
+		return Optional.ofNullable(entry).flatMap(notNull -> Optional.ofNullable(notNull.getFileName())).map(Object::toString);
 	}
 
 	protected Path readdirInitial(String path, DirectoryFiller filler) {
