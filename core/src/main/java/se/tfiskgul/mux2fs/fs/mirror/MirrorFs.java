@@ -25,6 +25,7 @@ package se.tfiskgul.mux2fs.fs.mirror;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
@@ -65,6 +66,8 @@ public class MirrorFs extends DecoupledFileSystem {
 			stat.stat(real(path));
 		} catch (NoSuchFileException | FileNotFoundException e) {
 			res = -ErrorCodes.ENOENT();
+		} catch (AccessDeniedException e) {
+			res = -ErrorCodes.EPERM();
 		} catch (IOException e) {
 			logger.warn("", e);
 			res = -ErrorCodes.EIO();
