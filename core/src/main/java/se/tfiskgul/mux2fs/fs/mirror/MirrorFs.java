@@ -30,6 +30,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -84,6 +85,8 @@ public class MirrorFs extends DecoupledFileSystem {
 					return 0;
 				}
 			}
+		} catch (NotDirectoryException e) {
+			return -ErrorCodes.ENOTDIR();
 		} catch (NoSuchFileException e) {
 			return -ErrorCodes.ENOENT();
 		} catch (IOException e) {
