@@ -23,6 +23,7 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs.fs.mirror;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
@@ -62,7 +63,7 @@ public class MirrorFs extends DecoupledFileSystem {
 		int res = 0;
 		try {
 			stat.stat(real(path));
-		} catch (NoSuchFileException e) {
+		} catch (NoSuchFileException | FileNotFoundException e) {
 			res = -ErrorCodes.ENOENT();
 		} catch (IOException e) {
 			logger.warn("", e);

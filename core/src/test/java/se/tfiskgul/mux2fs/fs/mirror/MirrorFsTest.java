@@ -28,11 +28,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.FileNotFoundException;
 import java.nio.file.FileSystem;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 
 import org.junit.Test;
 
+import ru.serce.jnrfuse.ErrorCodes;
 import se.tfiskgul.mux2fs.Fixture;
 import se.tfiskgul.mux2fs.fs.decoupling.StatFiller;
 
@@ -71,5 +74,41 @@ public class MirrorFsTest extends Fixture {
 		// Then
 		assertThat(result).isEqualTo(0);
 		verify(stat).stat(foo);
+	}
+
+	@Test
+	public void testGetAttrNoSuchFile()
+			throws Exception {
+		// Given
+		FileSystem fileSystem = mockFileSystem();
+		Path mirrorRoot = mockPath(fileSystem);
+		when(mirrorRoot.toString()).thenReturn("/mirror/root/");
+		MirrorFs fs = new MirrorFs(mirrorRoot);
+		Path foo = mockPath(fileSystem);
+		StatFiller stat = mock(StatFiller.class);
+		when(fileSystem.getPath(mirrorRoot.toString(), "/foo")).thenReturn(foo);
+		when(stat.stat(foo)).thenThrow(NoSuchFileException.class);
+		// When
+		int result = fs.getattr("/foo", stat);
+		// Then
+		assertThat(result).isEqualTo(-ErrorCodes.ENOENT());
+	}
+
+	@Test
+	public void testGetAttrFileNotFound()
+			throws Exception {
+		// Given
+		FileSystem fileSystem = mockFileSystem();
+		Path mirrorRoot = mockPath(fileSystem);
+		when(mirrorRoot.toString()).thenReturn("/mirror/root/");
+		MirrorFs fs = new MirrorFs(mirrorRoot);
+		Path foo = mockPath(fileSystem);
+		StatFiller stat = mock(StatFiller.class);
+		when(fileSystem.getPath(mirrorRoot.toString(), "/foo")).thenReturn(foo);
+		when(stat.stat(foo)).thenThrow(FileNotFoundException.class);
+		// When
+		int result = fs.getattr("/foo", stat);
+		// Then
+		assertThat(result).isEqualTo(-ErrorCodes.ENOENT());
 	}
 }
