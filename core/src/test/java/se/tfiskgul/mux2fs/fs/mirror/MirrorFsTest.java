@@ -24,8 +24,11 @@ SOFTWARE.
 package se.tfiskgul.mux2fs.fs.mirror;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.FileNotFoundException;
@@ -40,6 +43,7 @@ import org.junit.Test;
 
 import ru.serce.jnrfuse.ErrorCodes;
 import se.tfiskgul.mux2fs.Fixture;
+import se.tfiskgul.mux2fs.fs.decoupling.DirectoryFiller;
 import se.tfiskgul.mux2fs.fs.decoupling.StatFiller;
 
 public class MirrorFsTest extends Fixture {
@@ -131,5 +135,25 @@ public class MirrorFsTest extends Fixture {
 		int result = fs.getattr("/foo", stat);
 		// Then
 		assertThat(result).isEqualTo(-ErrorCodes.EIO());
+	}
+
+	@Test
+	public void testReadDir()
+			throws Exception {
+		// Given
+		Path foo = mockPath(mirrorRoot, "foo");
+		Path bar = mockPath(mirrorRoot, "bar");
+		mockDirectoryStream(mirrorRoot, foo, bar);
+		DirectoryFiller filler = mock(DirectoryFiller.class);
+		// When
+		int result = fs.readdir("/", filler);
+		// Then
+		assertThat(result).isEqualTo(0);
+		verify(fileSystem.provider()).newDirectoryStream(eq(mirrorRoot), any());
+		verify(filler).add(".", mirrorRoot);
+		verify(filler).add("..", mirrorRoot);
+		verify(filler).add("foo", foo);
+		verify(filler).add("bar", bar);
+		verifyNoMoreInteractions(filler);
 	}
 }

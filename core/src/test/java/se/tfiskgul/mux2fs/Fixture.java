@@ -23,12 +23,18 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.nio.file.spi.FileSystemProvider;
+import java.util.List;
+import java.util.stream.Stream;
 
 import com.google.common.collect.ImmutableList;
 
@@ -38,6 +44,8 @@ public abstract class Fixture {
 		Path path = mock(Path.class);
 		when(path.getFileSystem()).thenReturn(fileSystem);
 		when(path.toString()).thenReturn(name);
+		when(fileSystem.getPath(path.toString(), "/")).thenReturn(path);
+		when(fileSystem.getPath(path.toString(), "/", "..")).thenReturn(path); // Resolve ".." to the same as "."
 		return path;
 	}
 
@@ -53,13 +61,35 @@ public abstract class Fixture {
 		Path subPath = mock(Path.class);
 		when(subPath.getFileSystem()).thenReturn(fileSystem);
 		when(fileSystem.getPath(parent.toString(), name)).thenReturn(subPath);
-		String appended = parent.toString() + "/" + name;
-		when(subPath.toString()).thenReturn(appended);
+		String fullPath = (parent.toString() + "/" + name).replace("//", "/");
+		when(subPath.toString()).thenReturn(fullPath);
+		Path subPathFileName = mock(Path.class);
+		when(subPathFileName.toString()).thenReturn(name);
+		when(subPath.getFileName()).thenReturn(subPathFileName);
 		return subPath;
+	}
+
+	protected DirectoryStream<Path> mockDirectoryStream(Path root, Path... entries)
+			throws IOException {
+		return mockDirectoryStream(root, list(entries));
+	}
+
+	@SuppressWarnings("unchecked")
+	protected DirectoryStream<Path> mockDirectoryStream(Path root, List<Path> entries)
+			throws IOException {
+		DirectoryStream<Path> directoryStream = mock(DirectoryStream.class);
+		when(directoryStream.iterator()).thenReturn(entries.iterator());
+		when(root.getFileSystem().provider().newDirectoryStream(eq(root), any())).thenReturn(directoryStream);
+		return directoryStream;
 	}
 
 	@SuppressWarnings("unchecked")
 	protected <T> ImmutableList<T> list(T... elements) {
 		return ImmutableList.<T> builder().add(elements).build();
+	}
+
+	@SuppressWarnings("unchecked")
+	protected <T> Stream<T> stream(T... elements) {
+		return list(elements).stream();
 	}
 }
