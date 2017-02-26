@@ -30,12 +30,15 @@ import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.nio.file.spi.FileSystemProvider;
 
+import com.google.common.collect.ImmutableList;
+
 public abstract class Fixture {
 
-	protected Path mockPath(FileSystem fileSystem) {
-		Path mirrorRoot = mock(Path.class);
-		when(mirrorRoot.getFileSystem()).thenReturn(fileSystem);
-		return mirrorRoot;
+	protected Path mockPath(String name, FileSystem fileSystem) {
+		Path path = mock(Path.class);
+		when(path.getFileSystem()).thenReturn(fileSystem);
+		when(path.toString()).thenReturn(name);
+		return path;
 	}
 
 	protected FileSystem mockFileSystem() {
@@ -43,5 +46,20 @@ public abstract class Fixture {
 		FileSystemProvider fsProvider = mock(FileSystemProvider.class);
 		when(fileSystem.provider()).thenReturn(fsProvider);
 		return fileSystem;
+	}
+
+	protected Path mockPath(Path parent, String name) {
+		FileSystem fileSystem = parent.getFileSystem();
+		Path subPath = mock(Path.class);
+		when(subPath.getFileSystem()).thenReturn(fileSystem);
+		when(fileSystem.getPath(parent.toString(), name)).thenReturn(subPath);
+		String appended = parent.toString() + "/" + name;
+		when(subPath.toString()).thenReturn(appended);
+		return subPath;
+	}
+
+	@SuppressWarnings("unchecked")
+	protected <T> ImmutableList<T> list(T... elements) {
+		return ImmutableList.<T> builder().add(elements).build();
 	}
 }

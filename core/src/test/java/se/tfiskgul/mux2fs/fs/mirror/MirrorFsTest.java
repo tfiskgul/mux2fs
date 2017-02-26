@@ -35,6 +35,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import ru.serce.jnrfuse.ErrorCodes;
@@ -43,14 +44,21 @@ import se.tfiskgul.mux2fs.fs.decoupling.StatFiller;
 
 public class MirrorFsTest extends Fixture {
 
+	private FileSystem fileSystem;
+	private Path mirrorRoot;
+	private MirrorFs fs;
+
+	@Before
+	public void before() {
+		fileSystem = mockFileSystem();
+		mirrorRoot = mockPath("/mirror/root/", fileSystem);
+		fs = new MirrorFs(mirrorRoot);
+	}
+
 	@Test
 	public void testGetAttr()
 			throws Exception {
 		// Given
-		FileSystem fileSystem = mockFileSystem();
-		Path mirrorRoot = mockPath(fileSystem);
-		when(mirrorRoot.toString()).thenReturn("/mirror/root/");
-		MirrorFs fs = new MirrorFs(mirrorRoot);
 		StatFiller stat = mock(StatFiller.class);
 		when(fileSystem.getPath(mirrorRoot.toString(), "/")).thenReturn(mirrorRoot);
 		// When
@@ -64,13 +72,8 @@ public class MirrorFsTest extends Fixture {
 	public void testGetAttrSubDir()
 			throws Exception {
 		// Given
-		FileSystem fileSystem = mockFileSystem();
-		Path mirrorRoot = mockPath(fileSystem);
-		when(mirrorRoot.toString()).thenReturn("/mirror/root/");
-		MirrorFs fs = new MirrorFs(mirrorRoot);
-		Path foo = mockPath(fileSystem);
 		StatFiller stat = mock(StatFiller.class);
-		when(fileSystem.getPath(mirrorRoot.toString(), "/foo")).thenReturn(foo);
+		Path foo = mockPath(mirrorRoot, "/foo");
 		// When
 		int result = fs.getattr("/foo", stat);
 		// Then
@@ -82,13 +85,8 @@ public class MirrorFsTest extends Fixture {
 	public void testGetAttrNoSuchFile()
 			throws Exception {
 		// Given
-		FileSystem fileSystem = mockFileSystem();
-		Path mirrorRoot = mockPath(fileSystem);
-		when(mirrorRoot.toString()).thenReturn("/mirror/root/");
-		MirrorFs fs = new MirrorFs(mirrorRoot);
-		Path foo = mockPath(fileSystem);
 		StatFiller stat = mock(StatFiller.class);
-		when(fileSystem.getPath(mirrorRoot.toString(), "/foo")).thenReturn(foo);
+		Path foo = mockPath(mirrorRoot, "/foo");
 		when(stat.stat(foo)).thenThrow(NoSuchFileException.class);
 		// When
 		int result = fs.getattr("/foo", stat);
@@ -100,13 +98,8 @@ public class MirrorFsTest extends Fixture {
 	public void testGetAttrFileNotFound()
 			throws Exception {
 		// Given
-		FileSystem fileSystem = mockFileSystem();
-		Path mirrorRoot = mockPath(fileSystem);
-		when(mirrorRoot.toString()).thenReturn("/mirror/root/");
-		MirrorFs fs = new MirrorFs(mirrorRoot);
-		Path foo = mockPath(fileSystem);
 		StatFiller stat = mock(StatFiller.class);
-		when(fileSystem.getPath(mirrorRoot.toString(), "/foo")).thenReturn(foo);
+		Path foo = mockPath(mirrorRoot, "/foo");
 		when(stat.stat(foo)).thenThrow(FileNotFoundException.class);
 		// When
 		int result = fs.getattr("/foo", stat);
@@ -118,13 +111,8 @@ public class MirrorFsTest extends Fixture {
 	public void testGetAttrNoPerm()
 			throws Exception {
 		// Given
-		FileSystem fileSystem = mockFileSystem();
-		Path mirrorRoot = mockPath(fileSystem);
-		when(mirrorRoot.toString()).thenReturn("/mirror/root/");
-		MirrorFs fs = new MirrorFs(mirrorRoot);
-		Path foo = mockPath(fileSystem);
 		StatFiller stat = mock(StatFiller.class);
-		when(fileSystem.getPath(mirrorRoot.toString(), "/foo")).thenReturn(foo);
+		Path foo = mockPath(mirrorRoot, "/foo");
 		when(stat.stat(foo)).thenThrow(AccessDeniedException.class);
 		// When
 		int result = fs.getattr("/foo", stat);
@@ -136,13 +124,8 @@ public class MirrorFsTest extends Fixture {
 	public void testGetAttrIOException()
 			throws Exception {
 		// Given
-		FileSystem fileSystem = mockFileSystem();
-		Path mirrorRoot = mockPath(fileSystem);
-		when(mirrorRoot.toString()).thenReturn("/mirror/root/");
-		MirrorFs fs = new MirrorFs(mirrorRoot);
-		Path foo = mockPath(fileSystem);
 		StatFiller stat = mock(StatFiller.class);
-		when(fileSystem.getPath(mirrorRoot.toString(), "/foo")).thenReturn(foo);
+		Path foo = mockPath(mirrorRoot, "/foo");
 		when(stat.stat(foo)).thenThrow(IOException.class);
 		// When
 		int result = fs.getattr("/foo", stat);

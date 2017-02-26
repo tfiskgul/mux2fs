@@ -48,7 +48,7 @@ public class UnixFileStatImplTest extends Fixture {
 		// Given
 		int nonce = 123;
 		FileSystem fileSystem = mockFileSystem();
-		Path path = mockPath(fileSystem);
+		Path path = mockPath("/", fileSystem);
 		Instant base = Instant.now();
 		Map<String, Object> attributes = mockAttributes(nonce, base);
 		when(fileSystem.provider().readAttributes(eq(path), eq("unix:*"), any())).thenReturn(attributes);
