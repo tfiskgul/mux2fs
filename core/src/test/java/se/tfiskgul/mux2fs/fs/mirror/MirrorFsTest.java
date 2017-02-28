@@ -31,7 +31,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.FileSystem;
@@ -93,19 +92,6 @@ public class MirrorFsTest extends Fixture {
 		StatFiller stat = mock(StatFiller.class);
 		Path foo = mockPath(mirrorRoot, "/foo");
 		when(stat.stat(foo)).thenThrow(NoSuchFileException.class);
-		// When
-		int result = fs.getattr("/foo", stat);
-		// Then
-		assertThat(result).isEqualTo(-ErrorCodes.ENOENT());
-	}
-
-	@Test
-	public void testGetAttrFileNotFound()
-			throws Exception {
-		// Given
-		StatFiller stat = mock(StatFiller.class);
-		Path foo = mockPath(mirrorRoot, "/foo");
-		when(stat.stat(foo)).thenThrow(FileNotFoundException.class);
 		// When
 		int result = fs.getattr("/foo", stat);
 		// Then

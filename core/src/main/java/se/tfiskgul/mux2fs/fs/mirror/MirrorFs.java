@@ -23,7 +23,6 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs.fs.mirror;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryStream;
@@ -33,6 +32,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +54,24 @@ public class MirrorFs extends DecoupledFileSystem {
 		this.fileSystem = mirroredPath.getFileSystem();
 	}
 
+	private final Function<Try.CheckedSupplier<Integer, IOException>, Integer> tryCatch = (supplier) -> {
+		return Try.withCatch(supplier, IOException.class) //
+				.recoverFor(AccessDeniedException.class, e -> -ErrorCodes.EPERM()) //
+				.recoverFor(NoSuchFileException.class, e -> -ErrorCodes.ENOENT()) //
+				.recoverFor(NotDirectoryException.class, e -> -ErrorCodes.ENOTDIR()) //
+				.recoverFor(IOException.class, e -> {
+					logger.warn("", e); // Unmapped IOException, log warning
+					return -ErrorCodes.EIO();
+				}).orElse(-ErrorCodes.EIO());
+	};
+
+	private final Function<Try.CheckedRunnable<IOException>, Integer> tryCatchRunnable = (runnable) -> {
+		return tryCatch.apply(() -> {
+			runnable.run();
+			return 0;
+		});
+	};
+
 	@Override
 	public String getFSName() {
 		return "mirrorFs";
@@ -62,40 +80,22 @@ public class MirrorFs extends DecoupledFileSystem {
 	@Override
 	public int getattr(String path, StatFiller stat) {
 		logger.debug(path);
-		int res = 0;
-		try {
-			stat.stat(real(path));
-		} catch (NoSuchFileException | FileNotFoundException e) {
-			res = -ErrorCodes.ENOENT();
-		} catch (AccessDeniedException e) {
-			res = -ErrorCodes.EPERM();
-		} catch (IOException e) {
-			logger.warn("", e);
-			res = -ErrorCodes.EIO();
-		}
-		return res;
+		return tryCatchRunnable.apply(() -> stat.stat(real(path)));
 	}
 
 	@Override
 	public int readdir(String path, DirectoryFiller filler) {
 		Path realPath = readdirInitial(path, filler);
-		try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(realPath)) {
-			for (Path entry : directoryStream) {
-				if (!add(filler, entry)) {
-					return 0;
+		return tryCatch.apply(() -> {
+			try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(realPath)) {
+				for (Path entry : directoryStream) {
+					if (!add(filler, entry)) {
+						return 0;
+					}
 				}
 			}
-		} catch (NotDirectoryException e) {
-			return -ErrorCodes.ENOTDIR();
-		} catch (NoSuchFileException e) {
-			return -ErrorCodes.ENOENT();
-		} catch (AccessDeniedException e) {
-			return -ErrorCodes.EPERM();
-		} catch (IOException e) {
-			logger.warn("", e);
-			return -ErrorCodes.EIO();
-		}
-		return 0;
+			return 0;
+		});
 	}
 
 	/**
