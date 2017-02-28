@@ -35,7 +35,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.FileSystem;
-import java.nio.file.FileSystemException;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
@@ -171,7 +170,39 @@ public class MirrorFsTest extends Fixture {
 		negativeReadDir(-ErrorCodes.EPERM(), AccessDeniedException.class);
 	}
 
-	private void negativeReadDir(int expected, Class<? extends FileSystemException> exceptionType)
+	@Test
+	public void testReadDirNoDirOrFile()
+			throws Exception {
+		negativeReadDir(-ErrorCodes.ENOENT(), NoSuchFileException.class);
+	}
+
+	@Test
+	public void testReadDirIoErr()
+			throws Exception {
+		negativeReadDir(-ErrorCodes.EIO(), IOException.class);
+	}
+
+	@Test
+	public void testReadDirStopsEnumerationOnResourceExhaustion()
+			throws Exception {
+		// Given
+		Path foo = mockPath(mirrorRoot, "foo");
+		Path bar = mockPath(mirrorRoot, "bar");
+		mockDirectoryStream(mirrorRoot, foo, bar);
+		DirectoryFiller filler = mock(DirectoryFiller.class);
+		when(filler.add("foo", foo)).thenReturn(1); // Signify out of buffer memory, stop enumeration please
+		// When
+		int result = fs.readdir("/", filler);
+		// Then
+		assertThat(result).isEqualTo(0);
+		verify(fileSystem.provider()).newDirectoryStream(eq(mirrorRoot), any());
+		verify(filler).add(".", mirrorRoot);
+		verify(filler).add("..", mirrorRoot);
+		verify(filler).add("foo", foo);
+		verifyNoMoreInteractions(filler); // No bar is added, enumeration stopped
+	}
+
+	private void negativeReadDir(int expected, Class<? extends IOException> exceptionType)
 			throws IOException {
 		// Given
 		when(fileSystem.provider().newDirectoryStream(eq(mirrorRoot), any())).thenThrow(exceptionType);
