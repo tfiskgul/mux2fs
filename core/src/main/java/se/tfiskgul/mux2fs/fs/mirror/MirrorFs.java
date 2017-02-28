@@ -89,6 +89,8 @@ public class MirrorFs extends DecoupledFileSystem {
 			return -ErrorCodes.ENOTDIR();
 		} catch (NoSuchFileException e) {
 			return -ErrorCodes.ENOENT();
+		} catch (AccessDeniedException e) {
+			return -ErrorCodes.EPERM();
 		} catch (IOException e) {
 			logger.warn("", e);
 			return -ErrorCodes.EIO();

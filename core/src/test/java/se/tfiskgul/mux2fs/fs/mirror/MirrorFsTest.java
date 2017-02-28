@@ -35,6 +35,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystemException;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
@@ -161,12 +162,23 @@ public class MirrorFsTest extends Fixture {
 	@Test
 	public void testReadDirOnFile()
 			throws Exception {
+		negativeReadDir(-ErrorCodes.ENOTDIR(), NotDirectoryException.class);
+	}
+
+	@Test
+	public void testReadDirNoPerm()
+			throws Exception {
+		negativeReadDir(-ErrorCodes.EPERM(), AccessDeniedException.class);
+	}
+
+	private void negativeReadDir(int expected, Class<? extends FileSystemException> exceptionType)
+			throws IOException {
 		// Given
-		when(fileSystem.provider().newDirectoryStream(eq(mirrorRoot), any())).thenThrow(NotDirectoryException.class);
+		when(fileSystem.provider().newDirectoryStream(eq(mirrorRoot), any())).thenThrow(exceptionType);
 		DirectoryFiller filler = mock(DirectoryFiller.class);
 		// When
 		int result = fs.readdir("/", filler);
 		// Then
-		assertThat(result).isEqualTo(-ErrorCodes.ENOTDIR());
+		assertThat(result).isEqualTo(expected);
 	}
 }
