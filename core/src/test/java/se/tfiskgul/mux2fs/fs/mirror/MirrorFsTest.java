@@ -188,6 +188,40 @@ public class MirrorFsTest extends Fixture {
 		verifyNoMoreInteractions(filler); // No bar is added, enumeration stopped
 	}
 
+	@Test
+	public void testReadDirErrorOnFillDot()
+			throws Exception {
+		// Given
+		mockDirectoryStream(mirrorRoot);
+		DirectoryFiller filler = mock(DirectoryFiller.class);
+		when(filler.add(eq("."), any())).thenThrow(IOException.class);
+		// When
+		int result = fs.readdir("/", filler);
+		// Then
+		assertThat(result).isEqualTo(0);
+		verify(fileSystem.provider()).newDirectoryStream(eq(mirrorRoot), any());
+		verify(filler).add(".", mirrorRoot);
+		verify(filler).add("..", mirrorRoot);
+		verifyNoMoreInteractions(filler);
+	}
+
+	@Test
+	public void testReadDirErrorOnFillDotDot()
+			throws Exception {
+		// Given
+		mockDirectoryStream(mirrorRoot);
+		DirectoryFiller filler = mock(DirectoryFiller.class);
+		when(filler.add(eq(".."), any())).thenThrow(IOException.class);
+		// When
+		int result = fs.readdir("/", filler);
+		// Then
+		assertThat(result).isEqualTo(0);
+		verify(fileSystem.provider()).newDirectoryStream(eq(mirrorRoot), any());
+		verify(filler).add(".", mirrorRoot);
+		verify(filler).add("..", mirrorRoot);
+		verifyNoMoreInteractions(filler);
+	}
+
 	private void negativeReadDir(int expected, Class<? extends IOException> exceptionType)
 			throws IOException {
 		// Given
