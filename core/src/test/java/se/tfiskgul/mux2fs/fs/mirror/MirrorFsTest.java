@@ -222,6 +222,18 @@ public class MirrorFsTest extends Fixture {
 		verifyNoMoreInteractions(filler);
 	}
 
+	@Test
+	public void testGetFileNameOnNullPathIsEmpty()
+			throws Exception {
+		assertThat(fs.getFileName(null)).isEmpty();
+	}
+
+	@Test
+	public void testGetFileNameOnNullFileNameIsEmpty()
+			throws Exception {
+		assertThat(fs.getFileName(mock(Path.class))).isEmpty();
+	}
+
 	private void negativeReadDir(int expected, Class<? extends IOException> exceptionType)
 			throws IOException {
 		// Given

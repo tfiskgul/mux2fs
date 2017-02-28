@@ -112,7 +112,7 @@ public class MirrorFs extends DecoupledFileSystem {
 				.onFail(e -> logger.trace("", e)).toOptional()).orElse(true); // Ignore, files might get deleted / renamed while iterating
 	}
 
-	private Optional<String> getFileName(Path entry) {
+	protected Optional<String> getFileName(Path entry) {
 		return Optional.ofNullable(entry).flatMap(notNull -> Optional.ofNullable(notNull.getFileName())).map(Object::toString);
 	}
 
