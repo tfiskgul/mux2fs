@@ -48,6 +48,7 @@ import se.tfiskgul.mux2fs.fs.decoupling.StatFiller;
 
 public class MirrorFsTest extends Fixture {
 
+	private static final int SUCCESS = 0;
 	private FileSystem fileSystem;
 	private Path mirrorRoot;
 	private MirrorFs fs;
@@ -68,7 +69,7 @@ public class MirrorFsTest extends Fixture {
 		// When
 		int result = fs.getattr("/", stat);
 		// Then
-		assertThat(result).isEqualTo(0);
+		assertThat(result).isEqualTo(SUCCESS);
 		verify(stat).stat(mirrorRoot);
 	}
 
@@ -81,7 +82,7 @@ public class MirrorFsTest extends Fixture {
 		// When
 		int result = fs.getattr("/foo", stat);
 		// Then
-		assertThat(result).isEqualTo(0);
+		assertThat(result).isEqualTo(SUCCESS);
 		verify(stat).stat(foo);
 	}
 
@@ -135,7 +136,7 @@ public class MirrorFsTest extends Fixture {
 		// When
 		int result = fs.readdir("/", filler);
 		// Then
-		assertThat(result).isEqualTo(0);
+		assertThat(result).isEqualTo(SUCCESS);
 		verify(fileSystem.provider()).newDirectoryStream(eq(mirrorRoot), any());
 		verify(filler).add(".", mirrorRoot);
 		verify(filler).add("..", mirrorRoot);
@@ -180,7 +181,7 @@ public class MirrorFsTest extends Fixture {
 		// When
 		int result = fs.readdir("/", filler);
 		// Then
-		assertThat(result).isEqualTo(0);
+		assertThat(result).isEqualTo(SUCCESS);
 		verify(fileSystem.provider()).newDirectoryStream(eq(mirrorRoot), any());
 		verify(filler).add(".", mirrorRoot);
 		verify(filler).add("..", mirrorRoot);
@@ -198,7 +199,7 @@ public class MirrorFsTest extends Fixture {
 		// When
 		int result = fs.readdir("/", filler);
 		// Then
-		assertThat(result).isEqualTo(0);
+		assertThat(result).isEqualTo(SUCCESS);
 		verify(fileSystem.provider()).newDirectoryStream(eq(mirrorRoot), any());
 		verify(filler).add(".", mirrorRoot);
 		verify(filler).add("..", mirrorRoot);
@@ -215,7 +216,7 @@ public class MirrorFsTest extends Fixture {
 		// When
 		int result = fs.readdir("/", filler);
 		// Then
-		assertThat(result).isEqualTo(0);
+		assertThat(result).isEqualTo(SUCCESS);
 		verify(fileSystem.provider()).newDirectoryStream(eq(mirrorRoot), any());
 		verify(filler).add(".", mirrorRoot);
 		verify(filler).add("..", mirrorRoot);
@@ -246,7 +247,7 @@ public class MirrorFsTest extends Fixture {
 		// When
 		int result = fs.readdir("/", filler);
 		// Then
-		assertThat(result).isEqualTo(0);
+		assertThat(result).isEqualTo(SUCCESS);
 		verify(fileSystem.provider()).newDirectoryStream(eq(mirrorRoot), any());
 		verify(filler).add(".", mirrorRoot);
 		verify(filler).add("..", mirrorRoot);
