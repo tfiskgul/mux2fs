@@ -234,6 +234,27 @@ public class MirrorFsTest extends Fixture {
 		assertThat(fs.getFileName(mock(Path.class))).isEmpty();
 	}
 
+	@Test
+	public void testReadDirContinuesEnumerationOnError()
+			throws Exception {
+		// Given
+		Path foo = mockPath(mirrorRoot, "foo");
+		Path bar = mockPath(mirrorRoot, "bar");
+		mockDirectoryStream(mirrorRoot, foo, bar);
+		DirectoryFiller filler = mock(DirectoryFiller.class);
+		when(filler.add("foo", foo)).thenThrow(IOException.class);
+		// When
+		int result = fs.readdir("/", filler);
+		// Then
+		assertThat(result).isEqualTo(0);
+		verify(fileSystem.provider()).newDirectoryStream(eq(mirrorRoot), any());
+		verify(filler).add(".", mirrorRoot);
+		verify(filler).add("..", mirrorRoot);
+		verify(filler).add("foo", foo);
+		verify(filler).add("bar", bar);
+		verifyNoMoreInteractions(filler);
+	}
+
 	private void negativeReadDir(int expected, Class<? extends IOException> exceptionType)
 			throws IOException {
 		// Given
