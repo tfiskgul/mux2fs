@@ -52,6 +52,11 @@ public abstract class DecoupledFileSystem extends FuseStubFS implements NamedFil
 		return readdir(path, filler);
 	}
 
+	@Override
+	public final int open(String path, FuseFileInfo fi) {
+		return open(path, fh -> fi.fh.set(fh));
+	}
+
 	private static class FuseDirectoryFiller implements DirectoryFiller {
 
 		private final Pointer buf;
@@ -80,4 +85,6 @@ public abstract class DecoupledFileSystem extends FuseStubFS implements NamedFil
 	public abstract int getattr(String path, StatFiller stat);
 
 	public abstract int readdir(String path, DirectoryFiller filler);
+
+	public abstract int open(String path, FileHandleFiller filler);
 }

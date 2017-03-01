@@ -34,9 +34,11 @@ import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 public abstract class Fixture {
 
@@ -91,5 +93,10 @@ public abstract class Fixture {
 	@SuppressWarnings("unchecked")
 	protected <T> Stream<T> stream(T... elements) {
 		return list(elements).stream();
+	}
+
+	@SuppressWarnings("unchecked")
+	protected <T> Set<T> set(T... elements) {
+		return ImmutableSet.<T> builder().add(elements).build();
 	}
 }

@@ -24,9 +24,12 @@ SOFTWARE.
 package se.tfiskgul.mux2fs.fs.mirror;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.AdditionalMatchers.gt;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -37,13 +40,16 @@ import java.nio.file.FileSystem;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 
 import ru.serce.jnrfuse.ErrorCodes;
 import se.tfiskgul.mux2fs.Fixture;
 import se.tfiskgul.mux2fs.fs.decoupling.DirectoryFiller;
+import se.tfiskgul.mux2fs.fs.decoupling.FileHandleFiller;
 import se.tfiskgul.mux2fs.fs.decoupling.StatFiller;
 
 public class MirrorFsTest extends Fixture {
@@ -265,5 +271,42 @@ public class MirrorFsTest extends Fixture {
 		int result = fs.readdir("/", filler);
 		// Then
 		assertThat(result).isEqualTo(expected);
+	}
+
+	@Test
+	public void testOpen()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		// When
+		int result = fs.open("foo.bar", filler);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+		verify(filler).setFileHandle(gt(0));
+		verifyNoMoreInteractions(filler);
+		verify(fileSystem.provider()).newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)));
+		verifyNoMoreInteractions(fileSystem.provider());
+	}
+
+	@Test
+	public void testOpenFileHandleIsUnique()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
+		doNothing().when(filler).setFileHandle(handleCaptor.capture());
+		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		// When
+		int result = fs.open("foo.bar", filler);
+		result += fs.open("foo.bar", filler);
+		result += fs.open("foo.bar", filler);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+		verify(filler, times(3)).setFileHandle(gt(0));
+		verifyNoMoreInteractions(filler);
+		verify(fileSystem.provider(), times(3)).newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)));
+		verifyNoMoreInteractions(fileSystem.provider());
+		assertThat(handleCaptor.getAllValues()).hasSize(3).doesNotHaveDuplicates();
 	}
 }

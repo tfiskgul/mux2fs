@@ -24,6 +24,7 @@ SOFTWARE.
 package se.tfiskgul.mux2fs.fs.mirror;
 
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
@@ -31,7 +32,9 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import org.slf4j.Logger;
@@ -41,6 +44,7 @@ import cyclops.control.Try;
 import ru.serce.jnrfuse.ErrorCodes;
 import se.tfiskgul.mux2fs.fs.decoupling.DecoupledFileSystem;
 import se.tfiskgul.mux2fs.fs.decoupling.DirectoryFiller;
+import se.tfiskgul.mux2fs.fs.decoupling.FileHandleFiller;
 import se.tfiskgul.mux2fs.fs.decoupling.StatFiller;
 
 public class MirrorFs extends DecoupledFileSystem {
@@ -48,6 +52,7 @@ public class MirrorFs extends DecoupledFileSystem {
 	private static final Logger logger = LoggerFactory.getLogger(MirrorFs.class);
 	private final String mirroredRoot;
 	private final FileSystem fileSystem;
+	private final AtomicInteger fileHandleCounter = new AtomicInteger(32);
 
 	public MirrorFs(Path mirroredPath) {
 		this.mirroredRoot = mirroredPath.toString();
@@ -96,6 +101,21 @@ public class MirrorFs extends DecoupledFileSystem {
 			}
 			return 0;
 		});
+	}
+
+	@Override
+	public int open(String path, FileHandleFiller filler) {
+		logger.info(path);
+		Path real = real(path);
+		try {
+			FileChannel.open(real, StandardOpenOption.READ);
+			int fileHandle = fileHandleCounter.getAndIncrement();
+			filler.setFileHandle(fileHandle);
+			return 0;
+		} catch (IOException e) {
+			logger.warn("", e);
+			return -ErrorCodes.EIO();
+		}
 	}
 
 	/**
