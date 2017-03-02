@@ -59,12 +59,12 @@ public final class FileSystemWrapper extends FuseStubFS implements NamedFileSyst
 	}
 
 	@Override
-	public final void mount(Path mountPoint, boolean blocking, boolean debug, String[] fuseOpts) {
+	public void mount(Path mountPoint, boolean blocking, boolean debug, String[] fuseOpts) {
 		super.mount(mountPoint, blocking, debug, fuseOpts);
 	}
 
 	@Override
-	public final int readdir(String path, Pointer buf, FuseFillDir filter, long offset, FuseFileInfo fi) {
+	public int readdir(String path, Pointer buf, FuseFillDir filter, long offset, FuseFileInfo fi) {
 		return wrap(() -> delegate.readdir(path, buf, filter, offset, fi));
 	}
 
@@ -89,7 +89,7 @@ public final class FileSystemWrapper extends FuseStubFS implements NamedFileSyst
 	}
 
 	@Override
-	public final void umount() {
+	public void umount() {
 		super.umount();
 	}
 
