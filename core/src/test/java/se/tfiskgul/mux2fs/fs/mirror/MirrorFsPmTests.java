@@ -31,6 +31,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -106,4 +107,28 @@ public class MirrorFsPmTests extends MirrorFsFixture {
 		assertThat(result).isEqualTo(-ErrorCodes.EBADF());
 	}
 
+	@Test
+	public void testDestroyClosesFileChannels()
+			throws Exception {
+		// Given
+		FileChannel foo = mockAndOpen("foo");
+		FileChannel bar = mockAndOpen("bar");
+		// When
+		fs.destroy();
+		// Then
+		verify(foo).close();
+		verifyNoMoreInteractions(foo);
+		verify(bar).close();
+		verifyNoMoreInteractions(bar);
+	}
+
+	private FileChannel mockAndOpen(String name)
+			throws IOException {
+		Path path = mockPath(mirrorRoot, name);
+		FileChannel fileChannel = PowerMockito.mock(FileChannel.class);
+		when(fileSystem.provider().newFileChannel(eq(path), eq(set(StandardOpenOption.READ)))).thenReturn(fileChannel);
+		int result = fs.open(name, mock(FileHandleFiller.class));
+		assertThat(result).isEqualTo(SUCCESS);
+		return fileChannel;
+	}
 }

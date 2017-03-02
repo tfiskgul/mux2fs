@@ -427,4 +427,9 @@ public class MirrorFsTest extends MirrorFsFixture {
 		verifyNoMoreInteractions(fileChannel);
 		assertThat(bufferCaptor.getValue().limit()).isEqualTo(10);
 	}
+
+	@Test
+	public void testDestroy() {
+		fs.destroy();
+	}
 }

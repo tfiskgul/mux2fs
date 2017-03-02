@@ -164,6 +164,13 @@ public class MirrorFs extends DecoupledFileSystem {
 		return 0;
 	}
 
+	@Override
+	public void destroy() {
+		logger.info("Cleaning up");
+		openFiles.forEach((fh, channel) -> safeClose(channel));
+		openFiles.clear();
+	}
+
 	protected void safeClose(FileChannel fileChannel) {
 		Optional.ofNullable(fileChannel).map(fc -> Try.runWithCatch(() -> fileChannel.close(), IOException.class).onFail(e -> logger.trace("", e)));
 	}
