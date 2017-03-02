@@ -24,6 +24,7 @@ SOFTWARE.
 package se.tfiskgul.mux2fs.fs.mirror;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.fail;
 import static org.mockito.AdditionalMatchers.gt;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
@@ -35,6 +36,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.NoSuchFileException;
@@ -346,5 +348,83 @@ public class MirrorFsTest extends MirrorFsFixture {
 		int result = fs.release("foo.bar", 23);
 		// Then
 		assertThat(result).isEqualTo(-ErrorCodes.EBADF());
+	}
+
+	@Test
+	public void testReadBadFileDescriptor() {
+		// Given
+		// When
+		int result = fs.read("foo.bar", empty(), 10, 1234, 567);
+		// Then
+		assertThat(result).isEqualTo(-ErrorCodes.EBADF());
+	}
+
+	@Test
+	public void testRead()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
+		doNothing().when(filler).setFileHandle(handleCaptor.capture());
+		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		FileChannel fileChannel = mock(FileChannel.class);
+		when(fileSystem.provider().newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)))).thenReturn(fileChannel);
+		fs.open("foo.bar", filler);
+		Integer fileHandle = handleCaptor.getValue();
+		ArgumentCaptor<ByteBuffer> bufferCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
+		when(fileChannel.read(bufferCaptor.capture(), eq(1234L))).thenReturn(10);
+		// When
+		int result = fs.read("foo.bar", (data) -> assertThat(data).hasSize(10), 10, 1234L, fileHandle);
+		// Then
+		assertThat(result).isEqualTo(10);
+		verify(fileChannel).read(any(), eq(1234L));
+		verifyNoMoreInteractions(fileChannel);
+		assertThat(bufferCaptor.getValue().limit()).isEqualTo(10);
+	}
+
+	@Test
+	public void testReadEndOfFile()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
+		doNothing().when(filler).setFileHandle(handleCaptor.capture());
+		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		FileChannel fileChannel = mock(FileChannel.class);
+		when(fileSystem.provider().newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)))).thenReturn(fileChannel);
+		fs.open("foo.bar", filler);
+		Integer fileHandle = handleCaptor.getValue();
+		ArgumentCaptor<ByteBuffer> bufferCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
+		when(fileChannel.read(bufferCaptor.capture(), eq(1234L))).thenReturn(0);
+		// When
+		int result = fs.read("foo.bar", (data) -> fail("No data should be read"), 10, 1234L, fileHandle);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+		verify(fileChannel).read(any(), eq(1234L));
+		verifyNoMoreInteractions(fileChannel);
+		assertThat(bufferCaptor.getValue().limit()).isEqualTo(10);
+	}
+
+	@Test
+	public void testReadInputOutputException()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
+		doNothing().when(filler).setFileHandle(handleCaptor.capture());
+		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		FileChannel fileChannel = mock(FileChannel.class);
+		when(fileSystem.provider().newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)))).thenReturn(fileChannel);
+		fs.open("foo.bar", filler);
+		Integer fileHandle = handleCaptor.getValue();
+		ArgumentCaptor<ByteBuffer> bufferCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
+		when(fileChannel.read(bufferCaptor.capture(), eq(1234L))).thenThrow(new IOException());
+		// When
+		int result = fs.read("foo.bar", (data) -> fail("No data should be read"), 10, 1234L, fileHandle);
+		// Then
+		assertThat(result).isEqualTo(-ErrorCodes.EIO());
+		verify(fileChannel).read(any(), eq(1234L));
+		verifyNoMoreInteractions(fileChannel);
+		assertThat(bufferCaptor.getValue().limit()).isEqualTo(10);
 	}
 }

@@ -40,6 +40,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.BlockJUnit4ClassRunner;
 import org.mockito.ArgumentCaptor;
 import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
@@ -47,6 +48,7 @@ import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 import ru.serce.jnrfuse.ErrorCodes;
 import se.tfiskgul.mux2fs.fs.decoupling.FileHandleFiller;
 
+@PowerMockIgnore({ "javax.management.*", "org.jacoco.agent.rt.*" })
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ FileChannel.class, MirrorFs.class })
 @PowerMockRunnerDelegate(BlockJUnit4ClassRunner.class)

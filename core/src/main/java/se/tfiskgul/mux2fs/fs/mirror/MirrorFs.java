@@ -24,6 +24,7 @@ SOFTWARE.
 package se.tfiskgul.mux2fs.fs.mirror;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryStream;
@@ -37,6 +38,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.slf4j.Logger;
@@ -52,6 +54,8 @@ import se.tfiskgul.mux2fs.fs.decoupling.StatFiller;
 public class MirrorFs extends DecoupledFileSystem {
 
 	private static final Logger logger = LoggerFactory.getLogger(MirrorFs.class);
+	private static final int THREAD_BUF_SIZE = 128 * 1024;
+	private final ThreadLocal<ByteBuffer> threadBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocateDirect(THREAD_BUF_SIZE));
 	private final String mirroredRoot;
 	private final FileSystem fileSystem;
 	private final AtomicInteger fileHandleCounter = new AtomicInteger(32);
@@ -120,6 +124,36 @@ public class MirrorFs extends DecoupledFileSystem {
 	}
 
 	@Override
+	public int read(String path, Consumer<byte[]> buf, int size, long offset, int fileHandle) {
+		FileChannel fileChannel = openFiles.get(fileHandle);
+		logger.trace("{} {} {}", path, size, offset);
+		return readFromFileChannel(buf, offset, size, fileChannel);
+	}
+
+	protected int readFromFileChannel(Consumer<byte[]> buf, long offset, int size, FileChannel fileChannel) {
+		if (fileChannel == null) {
+			return -ErrorCodes.EBADF();
+		}
+		ByteBuffer byteBuffer = threadBuffer.get();
+		byteBuffer.clear();
+		byteBuffer.limit(size);
+		try {
+			int bytesRead = fileChannel.read(byteBuffer, offset); // Read into native memory
+			if (bytesRead <= 0) { // EOF
+				return 0;
+			}
+			byte[] intermediate = new byte[bytesRead]; // This copies native memory into JVM
+			byteBuffer.rewind();
+			byteBuffer.get(intermediate);
+			buf.accept(intermediate); // And then back =(
+			return bytesRead;
+		} catch (Exception e) {
+			logger.warn("", e);
+			return -ErrorCodes.EIO();
+		}
+	}
+
+	@Override
 	public int release(String path, int fileHandle) {
 		logger.info("release({}, {})", fileHandle, path);
 		FileChannel fileChannel = openFiles.remove(fileHandle);
@@ -170,4 +204,5 @@ public class MirrorFs extends DecoupledFileSystem {
 	protected Path real(String... virtual) {
 		return fileSystem.getPath(mirroredRoot, virtual);
 	}
+
 }

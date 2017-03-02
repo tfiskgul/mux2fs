@@ -25,9 +25,13 @@ package se.tfiskgul.mux2fs.fs.decoupling;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.function.Consumer;
 
 import jnr.ffi.Pointer;
 import jnr.ffi.Runtime;
+import jnr.ffi.types.off_t;
+import jnr.ffi.types.size_t;
+import ru.serce.jnrfuse.ErrorCodes;
 import ru.serce.jnrfuse.FuseFillDir;
 import ru.serce.jnrfuse.FuseStubFS;
 import ru.serce.jnrfuse.struct.FileStat;
@@ -55,6 +59,14 @@ public abstract class DecoupledFileSystem extends FuseStubFS implements NamedFil
 	@Override
 	public final int open(String path, FuseFileInfo fi) {
 		return open(path, fh -> fi.fh.set(fh));
+	}
+
+	@Override
+	public final int read(String path, Pointer buf, @size_t long size, @off_t long offset, FuseFileInfo fi) {
+		if (size >= Integer.MAX_VALUE) {
+			return -ErrorCodes.EINVAL();
+		}
+		return read(path, (data) -> buf.put(0, data, 0, data.length), (int) size, offset, fi.fh.intValue());
 	}
 
 	@Override
@@ -92,6 +104,8 @@ public abstract class DecoupledFileSystem extends FuseStubFS implements NamedFil
 	public abstract int readdir(String path, DirectoryFiller filler);
 
 	public abstract int open(String path, FileHandleFiller filler);
+
+	public abstract int read(String path, Consumer<byte[]> buf, int size, long offset, int fileHandle);
 
 	public abstract int release(String path, int fileHandle);
 }
