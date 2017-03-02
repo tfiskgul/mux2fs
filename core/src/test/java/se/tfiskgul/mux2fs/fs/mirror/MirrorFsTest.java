@@ -309,4 +309,36 @@ public class MirrorFsTest extends Fixture {
 		verifyNoMoreInteractions(fileSystem.provider());
 		assertThat(handleCaptor.getAllValues()).hasSize(3).doesNotHaveDuplicates();
 	}
+
+	@Test
+	public void testOpenNoPerm()
+			throws Exception {
+		testOpenThrow(-ErrorCodes.EPERM(), AccessDeniedException.class);
+	}
+
+	@Test
+	public void testOpenNoSuchFile()
+			throws Exception {
+		testOpenThrow(-ErrorCodes.ENOENT(), NoSuchFileException.class);
+	}
+
+	@Test
+	public void testOpenIoError()
+			throws Exception {
+		testOpenThrow(-ErrorCodes.EIO(), IOException.class);
+	}
+
+	private void testOpenThrow(int expected, Class<? extends IOException> exceptionType)
+			throws IOException {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		when(fileSystem.provider().newFileChannel(any(), eq(set(StandardOpenOption.READ)))).thenThrow(exceptionType);
+		// When
+		int result = fs.open("/", filler);
+		// Then
+		assertThat(result).isEqualTo(expected);
+		verifyNoMoreInteractions(filler);
+		verify(fileSystem.provider()).newFileChannel(any(), eq(set(StandardOpenOption.READ)));
+		verifyNoMoreInteractions(fileSystem.provider());
+	}
 }

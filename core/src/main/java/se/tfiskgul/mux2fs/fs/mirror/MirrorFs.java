@@ -107,15 +107,14 @@ public class MirrorFs extends DecoupledFileSystem {
 	public int open(String path, FileHandleFiller filler) {
 		logger.info(path);
 		Path real = real(path);
-		try {
-			FileChannel.open(real, StandardOpenOption.READ);
+		return tryCatchRunnable.apply(() -> {
+			FileChannel channel = FileChannel.open(real, StandardOpenOption.READ);
+			if (channel != null) {
+				channel.close(); // Close to avoid leaks. Dummy implementation until we have close()
+			}
 			int fileHandle = fileHandleCounter.getAndIncrement();
 			filler.setFileHandle(fileHandle);
-			return 0;
-		} catch (IOException e) {
-			logger.warn("", e);
-			return -ErrorCodes.EIO();
-		}
+		});
 	}
 
 	/**
