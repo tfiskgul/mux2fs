@@ -25,8 +25,8 @@ package se.tfiskgul.mux2fs.fs.mirror;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.AdditionalMatchers.gt;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -98,7 +98,7 @@ public class MirrorFsTest extends Fixture {
 		// Given
 		StatFiller stat = mock(StatFiller.class);
 		Path foo = mockPath(mirrorRoot, "/foo");
-		when(stat.stat(foo)).thenThrow(NoSuchFileException.class);
+		when(stat.stat(foo)).thenThrow(new NoSuchFileException(null));
 		// When
 		int result = fs.getattr("/foo", stat);
 		// Then
@@ -111,7 +111,7 @@ public class MirrorFsTest extends Fixture {
 		// Given
 		StatFiller stat = mock(StatFiller.class);
 		Path foo = mockPath(mirrorRoot, "/foo");
-		when(stat.stat(foo)).thenThrow(AccessDeniedException.class);
+		when(stat.stat(foo)).thenThrow(new AccessDeniedException(null));
 		// When
 		int result = fs.getattr("/foo", stat);
 		// Then
@@ -124,7 +124,7 @@ public class MirrorFsTest extends Fixture {
 		// Given
 		StatFiller stat = mock(StatFiller.class);
 		Path foo = mockPath(mirrorRoot, "/foo");
-		when(stat.stat(foo)).thenThrow(IOException.class);
+		when(stat.stat(foo)).thenThrow(new IOException());
 		// When
 		int result = fs.getattr("/foo", stat);
 		// Then
@@ -154,25 +154,25 @@ public class MirrorFsTest extends Fixture {
 	@Test
 	public void testReadDirOnFile()
 			throws Exception {
-		negativeReadDir(-ErrorCodes.ENOTDIR(), NotDirectoryException.class);
+		negativeReadDir(-ErrorCodes.ENOTDIR(), new NotDirectoryException(null));
 	}
 
 	@Test
 	public void testReadDirNoPerm()
 			throws Exception {
-		negativeReadDir(-ErrorCodes.EPERM(), AccessDeniedException.class);
+		negativeReadDir(-ErrorCodes.EPERM(), new AccessDeniedException(null));
 	}
 
 	@Test
 	public void testReadDirNoDirOrFile()
 			throws Exception {
-		negativeReadDir(-ErrorCodes.ENOENT(), NoSuchFileException.class);
+		negativeReadDir(-ErrorCodes.ENOENT(), new NoSuchFileException(null));
 	}
 
 	@Test
 	public void testReadDirIoErr()
 			throws Exception {
-		negativeReadDir(-ErrorCodes.EIO(), IOException.class);
+		negativeReadDir(-ErrorCodes.EIO(), new IOException());
 	}
 
 	@Test
@@ -201,7 +201,7 @@ public class MirrorFsTest extends Fixture {
 		// Given
 		mockDirectoryStream(mirrorRoot);
 		DirectoryFiller filler = mock(DirectoryFiller.class);
-		when(filler.add(eq("."), any())).thenThrow(IOException.class);
+		when(filler.add(eq("."), any())).thenThrow(new IOException());
 		// When
 		int result = fs.readdir("/", filler);
 		// Then
@@ -218,7 +218,7 @@ public class MirrorFsTest extends Fixture {
 		// Given
 		mockDirectoryStream(mirrorRoot);
 		DirectoryFiller filler = mock(DirectoryFiller.class);
-		when(filler.add(eq(".."), any())).thenThrow(IOException.class);
+		when(filler.add(eq(".."), any())).thenThrow(new IOException());
 		// When
 		int result = fs.readdir("/", filler);
 		// Then
@@ -249,7 +249,7 @@ public class MirrorFsTest extends Fixture {
 		Path bar = mockPath(mirrorRoot, "bar");
 		mockDirectoryStream(mirrorRoot, foo, bar);
 		DirectoryFiller filler = mock(DirectoryFiller.class);
-		when(filler.add("foo", foo)).thenThrow(IOException.class);
+		when(filler.add("foo", foo)).thenThrow(new IOException());
 		// When
 		int result = fs.readdir("/", filler);
 		// Then
@@ -262,10 +262,10 @@ public class MirrorFsTest extends Fixture {
 		verifyNoMoreInteractions(filler);
 	}
 
-	private void negativeReadDir(int expected, Class<? extends IOException> exceptionType)
+	private void negativeReadDir(int expected, IOException exception)
 			throws IOException {
 		// Given
-		when(fileSystem.provider().newDirectoryStream(eq(mirrorRoot), any())).thenThrow(exceptionType);
+		when(fileSystem.provider().newDirectoryStream(eq(mirrorRoot), any())).thenThrow(exception);
 		DirectoryFiller filler = mock(DirectoryFiller.class);
 		// When
 		int result = fs.readdir("/", filler);
@@ -313,26 +313,26 @@ public class MirrorFsTest extends Fixture {
 	@Test
 	public void testOpenNoPerm()
 			throws Exception {
-		testOpenThrow(-ErrorCodes.EPERM(), AccessDeniedException.class);
+		testOpenThrow(-ErrorCodes.EPERM(), new AccessDeniedException(null));
 	}
 
 	@Test
 	public void testOpenNoSuchFile()
 			throws Exception {
-		testOpenThrow(-ErrorCodes.ENOENT(), NoSuchFileException.class);
+		testOpenThrow(-ErrorCodes.ENOENT(), new NoSuchFileException(null));
 	}
 
 	@Test
 	public void testOpenIoError()
 			throws Exception {
-		testOpenThrow(-ErrorCodes.EIO(), IOException.class);
+		testOpenThrow(-ErrorCodes.EIO(), new IOException());
 	}
 
-	private void testOpenThrow(int expected, Class<? extends IOException> exceptionType)
+	private void testOpenThrow(int expected, IOException exception)
 			throws IOException {
 		// Given
 		FileHandleFiller filler = mock(FileHandleFiller.class);
-		when(fileSystem.provider().newFileChannel(any(), eq(set(StandardOpenOption.READ)))).thenThrow(exceptionType);
+		when(fileSystem.provider().newFileChannel(any(), eq(set(StandardOpenOption.READ)))).thenThrow(exception);
 		// When
 		int result = fs.open("/", filler);
 		// Then
