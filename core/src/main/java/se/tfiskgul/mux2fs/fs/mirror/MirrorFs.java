@@ -32,6 +32,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.NotDirectoryException;
+import java.nio.file.NotLinkException;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Optional;
@@ -67,11 +68,13 @@ public class MirrorFs extends DecoupledFileSystem {
 		this.fileSystem = mirroredPath.getFileSystem();
 	}
 
-	private final Function<Try.CheckedSupplier<Integer, IOException>, Integer> tryCatch = (supplier) -> {
-		return Try.withCatch(supplier, IOException.class) //
+	private final Function<Try.CheckedSupplier<Integer, Exception>, Integer> tryCatch = (supplier) -> {
+		return Try.withCatch(supplier, Exception.class) //
 				.recoverFor(AccessDeniedException.class, e -> -ErrorCodes.EPERM()) //
 				.recoverFor(NoSuchFileException.class, e -> -ErrorCodes.ENOENT()) //
 				.recoverFor(NotDirectoryException.class, e -> -ErrorCodes.ENOTDIR()) //
+				.recoverFor(NotLinkException.class, e -> -ErrorCodes.EINVAL()) //
+				.recoverFor(UnsupportedOperationException.class, e -> -ErrorCodes.ENOSYS()) //
 				.recoverFor(IOException.class, e -> {
 					logger.warn("", e); // Unmapped IOException, log warning
 					return -ErrorCodes.EIO();
@@ -109,6 +112,26 @@ public class MirrorFs extends DecoupledFileSystem {
 			}
 			return 0;
 		});
+	}
+
+	@Override
+	public int readLink(String path, Consumer<String> buf, int size) {
+		logger.debug(path);
+		Path real = real(path);
+		return tryCatch.apply(() -> {
+			Path target = Files.readSymbolicLink(real);
+			return getFileName(target).map(name -> {
+				buf.accept(truncateIfNeeded(name, size));
+				return 0;
+			}).orElse(-ErrorCodes.EINVAL());
+		});
+	}
+
+	private String truncateIfNeeded(String string, int length) {
+		if (string.length() > length) {
+			return string.substring(0, length);
+		}
+		return string;
 	}
 
 	@Override
@@ -211,5 +234,4 @@ public class MirrorFs extends DecoupledFileSystem {
 	protected Path real(String... virtual) {
 		return fileSystem.getPath(mirroredRoot, virtual);
 	}
-
 }

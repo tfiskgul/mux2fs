@@ -41,6 +41,7 @@ import java.nio.channels.FileChannel;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.NotDirectoryException;
+import java.nio.file.NotLinkException;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
@@ -431,5 +432,66 @@ public class MirrorFsTest extends MirrorFsFixture {
 	@Test
 	public void testDestroy() {
 		fs.destroy();
+	}
+
+	@Test
+	public void testReadLink()
+			throws Exception {
+		// Given
+		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		Path target = mockPath(mirrorRoot, "bar.foo");
+		when(fileSystem.provider().readSymbolicLink(fooBar)).thenReturn(target);
+		// When
+		int result = fs.readLink("foo.bar", (name) -> assertThat(name).isEqualTo("bar.foo"), 1024);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+	}
+
+	@Test
+	public void testReadLinkNotLink()
+			throws Exception {
+		readLinkThrow(-ErrorCodes.EINVAL(), new NotLinkException(null));
+	}
+
+	@Test
+	public void testReadLinkUnsupportedOperation()
+			throws Exception {
+		readLinkThrow(-ErrorCodes.ENOSYS(), new UnsupportedOperationException());
+	}
+
+	@Test
+	public void testReadLinkInputOutputError()
+			throws Exception {
+		readLinkThrow(-ErrorCodes.EIO(), new IOException());
+	}
+
+	@Test
+	public void testReadLinkNoSuchFile()
+			throws Exception {
+		readLinkThrow(-ErrorCodes.ENOENT(), new NoSuchFileException(null));
+	}
+
+	private void readLinkThrow(int expected, Exception exception)
+			throws Exception {
+		// Given
+		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		when(fileSystem.provider().readSymbolicLink(fooBar)).thenThrow(exception);
+		// When
+		int result = fs.readLink("foo.bar", (name) -> fail(), 1024);
+		// Then
+		assertThat(result).isEqualTo(expected);
+	}
+
+	@Test
+	public void testReadLinkLongNameIsTruncated()
+			throws Exception {
+		// Given
+		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		Path target = mockPath(mirrorRoot, "ThisIsALongName");
+		when(fileSystem.provider().readSymbolicLink(fooBar)).thenReturn(target);
+		// When
+		int result = fs.readLink("foo.bar", (name) -> assertThat(name).isEqualTo("ThisI"), 5);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
 	}
 }

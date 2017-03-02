@@ -69,6 +69,11 @@ public final class FileSystemWrapper extends FuseStubFS implements NamedFileSyst
 	}
 
 	@Override
+	public int readlink(String path, Pointer buf, long size) {
+		return wrap(() -> delegate.readlink(path, buf, size));
+	}
+
+	@Override
 	public int getattr(String path, FileStat stat) {
 		return wrap(() -> delegate.getattr(path, stat));
 	}

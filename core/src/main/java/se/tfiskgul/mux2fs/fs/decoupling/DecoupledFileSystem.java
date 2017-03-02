@@ -23,6 +23,8 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs.fs.decoupling;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.function.Consumer;
@@ -54,6 +56,12 @@ public abstract class DecoupledFileSystem extends FuseStubFS implements NamedFil
 	public final int readdir(String path, Pointer buf, FuseFillDir filter, long offset, FuseFileInfo fi) {
 		DirectoryFiller filler = new FuseDirectoryFiller(buf, filter);
 		return readdir(path, filler);
+	}
+
+	@Override
+	public final int readlink(String path, Pointer buf, long size) {
+		int intSize = (int) size;
+		return readLink(path, (name) -> buf.putString(0, name, intSize, UTF_8), intSize);
 	}
 
 	@Override
@@ -107,6 +115,8 @@ public abstract class DecoupledFileSystem extends FuseStubFS implements NamedFil
 	public abstract int getattr(String path, StatFiller stat);
 
 	public abstract int readdir(String path, DirectoryFiller filler);
+
+	public abstract int readLink(String path, Consumer<String> buf, int size);
 
 	public abstract int open(String path, FileHandleFiller filler);
 
