@@ -34,6 +34,8 @@ import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
@@ -53,8 +55,10 @@ public class MirrorFs extends DecoupledFileSystem {
 	private final String mirroredRoot;
 	private final FileSystem fileSystem;
 	private final AtomicInteger fileHandleCounter = new AtomicInteger(32);
+	private final ConcurrentMap<Integer, FileChannel> openFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
 
 	public MirrorFs(Path mirroredPath) {
+		super();
 		this.mirroredRoot = mirroredPath.toString();
 		this.fileSystem = mirroredPath.getFileSystem();
 	}
@@ -109,12 +113,25 @@ public class MirrorFs extends DecoupledFileSystem {
 		Path real = real(path);
 		return tryCatchRunnable.apply(() -> {
 			FileChannel channel = FileChannel.open(real, StandardOpenOption.READ);
-			if (channel != null) {
-				channel.close(); // Close to avoid leaks. Dummy implementation until we have close()
-			}
 			int fileHandle = fileHandleCounter.getAndIncrement();
+			openFiles.put(fileHandle, channel);
 			filler.setFileHandle(fileHandle);
 		});
+	}
+
+	@Override
+	public int release(String path, int fileHandle) {
+		logger.info("release({}, {})", fileHandle, path);
+		FileChannel fileChannel = openFiles.remove(fileHandle);
+		if (fileChannel == null) {
+			return -ErrorCodes.EBADF();
+		}
+		safeClose(fileChannel);
+		return 0;
+	}
+
+	protected void safeClose(FileChannel fileChannel) {
+		Optional.ofNullable(fileChannel).map(fc -> Try.runWithCatch(() -> fileChannel.close(), IOException.class).onFail(e -> logger.trace("", e)));
 	}
 
 	/**
@@ -153,5 +170,4 @@ public class MirrorFs extends DecoupledFileSystem {
 	protected Path real(String... virtual) {
 		return fileSystem.getPath(mirroredRoot, virtual);
 	}
-
 }

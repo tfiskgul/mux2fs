@@ -35,36 +35,22 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.nio.file.AccessDeniedException;
-import java.nio.file.FileSystem;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
-import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 import ru.serce.jnrfuse.ErrorCodes;
-import se.tfiskgul.mux2fs.Fixture;
 import se.tfiskgul.mux2fs.fs.decoupling.DirectoryFiller;
 import se.tfiskgul.mux2fs.fs.decoupling.FileHandleFiller;
 import se.tfiskgul.mux2fs.fs.decoupling.StatFiller;
 
-public class MirrorFsTest extends Fixture {
-
-	private static final int SUCCESS = 0;
-	private FileSystem fileSystem;
-	private Path mirrorRoot;
-	private MirrorFs fs;
-
-	@Before
-	public void before() {
-		fileSystem = mockFileSystem();
-		mirrorRoot = mockPath("/mirror/root/", fileSystem);
-		fs = new MirrorFs(mirrorRoot);
-	}
+public class MirrorFsTest extends MirrorFsFixture {
 
 	@Test
 	public void testGetAttr()
@@ -279,6 +265,7 @@ public class MirrorFsTest extends Fixture {
 		// Given
 		FileHandleFiller filler = mock(FileHandleFiller.class);
 		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		when(fileSystem.provider().newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)))).thenReturn(mock(FileChannel.class));
 		// When
 		int result = fs.open("foo.bar", filler);
 		// Then
@@ -297,6 +284,7 @@ public class MirrorFsTest extends Fixture {
 		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
 		doNothing().when(filler).setFileHandle(handleCaptor.capture());
 		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		when(fileSystem.provider().newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)))).thenReturn(mock(FileChannel.class));
 		// When
 		int result = fs.open("foo.bar", filler);
 		result += fs.open("foo.bar", filler);
@@ -340,5 +328,23 @@ public class MirrorFsTest extends Fixture {
 		verifyNoMoreInteractions(filler);
 		verify(fileSystem.provider()).newFileChannel(any(), eq(set(StandardOpenOption.READ)));
 		verifyNoMoreInteractions(fileSystem.provider());
+	}
+
+	@Test
+	public void testReleaseNegativeFileHandle() {
+		// Given
+		// When
+		int result = fs.release("foo.bar", -23);
+		// Then
+		assertThat(result).isEqualTo(-ErrorCodes.EBADF());
+	}
+
+	@Test
+	public void testReleaseNonOpenedFileHandle() {
+		// Given
+		// When
+		int result = fs.release("foo.bar", 23);
+		// Then
+		assertThat(result).isEqualTo(-ErrorCodes.EBADF());
 	}
 }

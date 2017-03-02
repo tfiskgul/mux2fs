@@ -42,6 +42,8 @@ import com.google.common.collect.ImmutableSet;
 
 public abstract class Fixture {
 
+	public static final int SUCCESS = 0;
+
 	protected Path mockPath(String name, FileSystem fileSystem) {
 		Path path = mock(Path.class);
 		when(path.getFileSystem()).thenReturn(fileSystem);
