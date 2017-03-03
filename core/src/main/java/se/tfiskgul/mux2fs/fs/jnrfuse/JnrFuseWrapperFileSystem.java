@@ -21,15 +21,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
-package se.tfiskgul.mux2fs.fs.base;
+package se.tfiskgul.mux2fs.fs.jnrfuse;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.IOException;
 import java.nio.file.Path;
-import java.util.function.Supplier;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import jnr.ffi.Pointer;
+import jnr.ffi.Runtime;
 import jnr.ffi.types.off_t;
 import jnr.ffi.types.size_t;
 import ru.serce.jnrfuse.ErrorCodes;
@@ -37,19 +37,14 @@ import ru.serce.jnrfuse.FuseFillDir;
 import ru.serce.jnrfuse.FuseStubFS;
 import ru.serce.jnrfuse.struct.FileStat;
 import ru.serce.jnrfuse.struct.FuseFileInfo;
+import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
+import se.tfiskgul.mux2fs.fs.base.FileSystem;
 
-/**
- * Wraps a NamedFileSystem to catch any Throwable.
- *
- * Returns -EIO and logs the exceptions.
- */
-public final class FileSystemWrapper extends FuseStubFS implements NamedFileSystem {
+public final class JnrFuseWrapperFileSystem extends FuseStubFS implements NamedJnrFuseFileSystem {
 
-	private static final Logger logger = LoggerFactory.getLogger(FileSystemWrapper.class);
-	private static final int BUG_ERR = -ErrorCodes.EIO();
-	private final NamedFileSystem delegate;
+	private final FileSystem delegate;
 
-	public FileSystemWrapper(NamedFileSystem delegate) {
+	public JnrFuseWrapperFileSystem(FileSystem delegate) {
 		this.delegate = delegate;
 	}
 
@@ -59,64 +54,69 @@ public final class FileSystemWrapper extends FuseStubFS implements NamedFileSyst
 	}
 
 	@Override
-	public void mount(Path mountPoint, boolean blocking, boolean debug, String[] fuseOpts) {
-		super.mount(mountPoint, blocking, debug, fuseOpts);
+	public int getattr(String path, FileStat stat) {
+		JnrFuseUnixFileStat unixFileStat = new JnrFuseUnixFileStat();
+		int result = delegate.getattr(path, unixFileStat);
+		if (result == 0) {
+			unixFileStat.fill(stat);
+		}
+		return result;
 	}
 
 	@Override
 	public int readdir(String path, Pointer buf, FuseFillDir filter, long offset, FuseFileInfo fi) {
-		return wrap(() -> delegate.readdir(path, buf, filter, offset, fi));
+		DirectoryFiller filler = new FuseDirectoryFiller(buf, filter);
+		return delegate.readdir(path, filler);
 	}
 
 	@Override
 	public int readlink(String path, Pointer buf, long size) {
-		return wrap(() -> delegate.readlink(path, buf, size));
-	}
-
-	@Override
-	public int getattr(String path, FileStat stat) {
-		return wrap(() -> delegate.getattr(path, stat));
+		int intSize = (int) size;
+		return delegate.readLink(path, (name) -> buf.putString(0, name, intSize, UTF_8), intSize);
 	}
 
 	@Override
 	public int open(String path, FuseFileInfo fi) {
-		return wrap(() -> delegate.open(path, fi));
+		return delegate.open(path, fh -> fi.fh.set(fh));
 	}
 
 	@Override
 	public int read(String path, Pointer buf, @size_t long size, @off_t long offset, FuseFileInfo fi) {
-		return wrap(() -> delegate.read(path, buf, size, offset, fi));
+		if (size >= Integer.MAX_VALUE) {
+			return -ErrorCodes.EINVAL();
+		}
+		return delegate.read(path, (data) -> buf.put(0, data, 0, data.length), (int) size, offset, fi.fh.intValue());
 	}
 
 	@Override
 	public int release(String path, FuseFileInfo fi) {
-		return wrap(() -> delegate.release(path, fi));
+		return delegate.release(path, fi.fh.intValue());
 	}
 
 	@Override
-	public void umount() {
-		super.umount();
+	public final void destroy(Pointer initResult) {
+		delegate.destroy();
 	}
 
-	@Override
-	public void destroy(Pointer initResult) {
-		wrap(() -> delegate.destroy(initResult));
-	}
+	private static class FuseDirectoryFiller implements DirectoryFiller {
 
-	private int wrap(Supplier<Integer> supplier) {
-		try {
-			return supplier.get();
-		} catch (Throwable e) {
-			logger.error("BUG: Uncaught exception!", e);
-			return BUG_ERR;
+		private final Pointer buf;
+		private final FuseFillDir filter;
+
+		private FuseDirectoryFiller(Pointer buf, FuseFillDir filter) {
+			super();
+			this.buf = buf;
+			this.filter = filter;
 		}
-	}
 
-	private void wrap(Runnable runnable) {
-		try {
-			runnable.run();
-		} catch (Throwable e) {
-			logger.error("BUG: Uncaught exception!", e);
+		@Override
+		public int add(String name, Path path)
+				throws IOException {
+			FileStat fuseStat = new FileStat(Runtime.getSystemRuntime());
+			JnrFuseUnixFileStat unixFileStat = new JnrFuseUnixFileStat();
+			unixFileStat.stat(path);
+			unixFileStat.fill(fuseStat);
+			return filter.apply(buf, name, fuseStat, 0);
 		}
 	}
 }

@@ -49,9 +49,9 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 import ru.serce.jnrfuse.ErrorCodes;
-import se.tfiskgul.mux2fs.fs.decoupling.DirectoryFiller;
-import se.tfiskgul.mux2fs.fs.decoupling.FileHandleFiller;
-import se.tfiskgul.mux2fs.fs.decoupling.StatFiller;
+import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
+import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
+import se.tfiskgul.mux2fs.fs.base.StatFiller;
 
 public class MirrorFsTest extends MirrorFsFixture {
 

@@ -23,9 +23,11 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs.fs.base;
 
-import ru.serce.jnrfuse.FuseFS;
+import java.io.IOException;
+import java.nio.file.Path;
 
-public interface NamedFileSystem extends FuseFS {
+public interface StatFiller {
 
-	String getFSName();
+	UnixFileStat stat(Path path)
+			throws IOException;
 }

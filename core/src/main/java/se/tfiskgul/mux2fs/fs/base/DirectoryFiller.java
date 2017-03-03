@@ -21,13 +21,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
-package se.tfiskgul.mux2fs.fs.decoupling;
+package se.tfiskgul.mux2fs.fs.base;
 
 import java.io.IOException;
 import java.nio.file.Path;
 
-public interface StatFiller {
+public interface DirectoryFiller {
 
-	UnixFileStat stat(Path path)
+	int add(String name, Path path)
 			throws IOException;
 }

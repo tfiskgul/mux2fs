@@ -47,7 +47,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
 import ru.serce.jnrfuse.ErrorCodes;
-import se.tfiskgul.mux2fs.fs.decoupling.FileHandleFiller;
+import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
 
 @PowerMockIgnore({ "javax.management.*", "org.jacoco.agent.rt.*" })
 @RunWith(PowerMockRunner.class)

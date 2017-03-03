@@ -21,7 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
-package se.tfiskgul.mux2fs.fs.decoupling;
+package se.tfiskgul.mux2fs.fs.base;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -30,9 +30,6 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 import java.util.Map;
-
-import ru.serce.jnrfuse.struct.FileStat;
-import ru.serce.jnrfuse.struct.Timespec;
 
 public class UnixFileStatImpl implements UnixFileStat, StatFiller {
 
@@ -51,7 +48,7 @@ public class UnixFileStatImpl implements UnixFileStat, StatFiller {
 	private Instant modificationTime;
 	private Instant inodeTime;
 
-	UnixFileStatImpl() {
+	protected UnixFileStatImpl() {
 		// NoOp
 	}
 
@@ -196,26 +193,5 @@ public class UnixFileStatImpl implements UnixFileStat, StatFiller {
 	private Instant getInstant(Map<String, Object> map, String string) {
 		FileTime time = (FileTime) map.get(string);
 		return time.toInstant();
-	}
-
-	void fill(FileStat stat) {
-		stat.st_dev.set(dev);
-		stat.st_ino.set(ino);
-		stat.st_nlink.set(links);
-		stat.st_mode.set(mode);
-		stat.st_uid.set(uid);
-		stat.st_gid.set(gid);
-		stat.st_rdev.set(rdev);
-		stat.st_size.set(size);
-		stat.st_blksize.set(blkSize);
-		stat.st_blocks.set(blocks);
-		fillTime(accessTime, stat.st_atim);
-		fillTime(modificationTime, stat.st_mtim);
-		fillTime(inodeTime, stat.st_ctim);
-	}
-
-	private void fillTime(Instant instant, Timespec timespec) {
-		timespec.tv_sec.set(instant.getEpochSecond());
-		timespec.tv_nsec.set(instant.getNano());
 	}
 }

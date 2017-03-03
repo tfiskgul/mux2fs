@@ -21,13 +21,35 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
-package se.tfiskgul.mux2fs.fs.decoupling;
+package se.tfiskgul.mux2fs.fs.base;
 
-import java.io.IOException;
-import java.nio.file.Path;
+import java.time.Instant;
 
-public interface DirectoryFiller {
+public interface UnixFileStat {
 
-	int add(String name, Path path)
-			throws IOException;
+	long getDev();
+
+	long getIno();
+
+	int getLinks();
+
+	int getMode();
+
+	int getUid();
+
+	int getGid();
+
+	long getRdev();
+
+	long getSize();
+
+	int getBlkSize();
+
+	long getBlocks();
+
+	Instant getAccessTime();
+
+	Instant getModificationTime();
+
+	Instant getInodeTime();
 }

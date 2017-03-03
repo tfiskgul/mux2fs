@@ -47,12 +47,11 @@ import org.slf4j.LoggerFactory;
 
 import cyclops.control.Try;
 import ru.serce.jnrfuse.ErrorCodes;
-import se.tfiskgul.mux2fs.fs.decoupling.DecoupledFileSystem;
-import se.tfiskgul.mux2fs.fs.decoupling.DirectoryFiller;
-import se.tfiskgul.mux2fs.fs.decoupling.FileHandleFiller;
-import se.tfiskgul.mux2fs.fs.decoupling.StatFiller;
+import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
+import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
+import se.tfiskgul.mux2fs.fs.base.StatFiller;
 
-public class MirrorFs extends DecoupledFileSystem {
+public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 
 	private static final Logger logger = LoggerFactory.getLogger(MirrorFs.class);
 	private static final int THREAD_BUF_SIZE = 128 * 1024;

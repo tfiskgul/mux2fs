@@ -21,35 +21,37 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
-package se.tfiskgul.mux2fs.fs.decoupling;
+package se.tfiskgul.mux2fs.fs.jnrfuse;
 
 import java.time.Instant;
 
-public interface UnixFileStat {
+import ru.serce.jnrfuse.struct.FileStat;
+import ru.serce.jnrfuse.struct.Timespec;
+import se.tfiskgul.mux2fs.fs.base.UnixFileStatImpl;
 
-	long getDev();
+public class JnrFuseUnixFileStat extends UnixFileStatImpl {
 
-	long getIno();
+	JnrFuseUnixFileStat() {
+	}
 
-	int getLinks();
+	void fill(FileStat stat) {
+		stat.st_dev.set(getDev());
+		stat.st_ino.set(getIno());
+		stat.st_nlink.set(getLinks());
+		stat.st_mode.set(getMode());
+		stat.st_uid.set(getUid());
+		stat.st_gid.set(getGid());
+		stat.st_rdev.set(getRdev());
+		stat.st_size.set(getSize());
+		stat.st_blksize.set(getBlkSize());
+		stat.st_blocks.set(getBlocks());
+		fillTime(getAccessTime(), stat.st_atim);
+		fillTime(getModificationTime(), stat.st_mtim);
+		fillTime(getInodeTime(), stat.st_ctim);
+	}
 
-	int getMode();
-
-	int getUid();
-
-	int getGid();
-
-	long getRdev();
-
-	long getSize();
-
-	int getBlkSize();
-
-	long getBlocks();
-
-	Instant getAccessTime();
-
-	Instant getModificationTime();
-
-	Instant getInodeTime();
+	private void fillTime(Instant instant, Timespec timespec) {
+		timespec.tv_sec.set(instant.getEpochSecond());
+		timespec.tv_nsec.set(instant.getNano());
+	}
 }
