@@ -221,13 +221,13 @@ public class MirrorFsTest extends MirrorFsFixture {
 	@Test
 	public void testGetFileNameOnNullPathIsEmpty()
 			throws Exception {
-		assertThat(fs.getFileName(null)).isEmpty();
+		assertThat(new MirrorFs(mirrorRoot).getFileName(null)).isEmpty();
 	}
 
 	@Test
 	public void testGetFileNameOnNullFileNameIsEmpty()
 			throws Exception {
-		assertThat(fs.getFileName(mock(Path.class))).isEmpty();
+		assertThat(new MirrorFs(mirrorRoot).getFileName(mock(Path.class))).isEmpty();
 	}
 
 	@Test

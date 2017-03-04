@@ -34,7 +34,7 @@ public class MirrorFsFixture extends Fixture {
 
 	protected FileSystem fileSystem;
 	protected Path mirrorRoot;
-	protected MirrorFs fs;
+	protected se.tfiskgul.mux2fs.fs.base.FileSystem fs;
 
 	@Before
 	public void before() {

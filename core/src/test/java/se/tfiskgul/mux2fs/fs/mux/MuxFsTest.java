@@ -40,12 +40,11 @@ import se.tfiskgul.mux2fs.fs.mirror.MirrorFsTest;
 
 public class MuxFsTest extends MirrorFsTest {
 
-	private MuxFs fs;
-
 	@Before
 	@Override
 	public void before() {
-		super.before();
+		fileSystem = mockFileSystem();
+		mirrorRoot = mockPath("/mirror/root/", fileSystem);
 		fs = new MuxFs(mirrorRoot);
 	}
 
