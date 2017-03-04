@@ -24,10 +24,12 @@ SOFTWARE.
 package se.tfiskgul.mux2fs;
 
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
@@ -64,7 +66,12 @@ public abstract class Fixture {
 	protected Path mockPath(Path parent, String name) {
 		FileSystem fileSystem = parent.getFileSystem();
 		Path subPath = mock(Path.class);
+		when(subPath.toFile()).thenReturn(mock(File.class));
 		when(subPath.getFileSystem()).thenReturn(fileSystem);
+		when(subPath.resolve(anyString())).thenAnswer(invoke -> {
+			String childName = (String) invoke.getArguments()[0];
+			return mockPath(subPath, childName);
+		});
 		when(fileSystem.getPath(parent.toString(), name)).thenReturn(subPath);
 		String fullPath = (parent.toString() + "/" + name).replace("//", "/");
 		when(subPath.toString()).thenReturn(fullPath);
