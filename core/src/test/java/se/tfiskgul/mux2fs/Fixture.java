@@ -64,9 +64,15 @@ public abstract class Fixture {
 	}
 
 	protected Path mockPath(Path parent, String name) {
+		return mockPath(parent, name, 0L);
+	}
+
+	protected Path mockPath(Path parent, String name, long size) {
 		FileSystem fileSystem = parent.getFileSystem();
 		Path subPath = mock(Path.class);
-		when(subPath.toFile()).thenReturn(mock(File.class));
+		File subPathToFile = mock(File.class);
+		when(subPath.toFile()).thenReturn(subPathToFile);
+		when(subPathToFile.length()).thenReturn(size);
 		when(subPath.getFileSystem()).thenReturn(fileSystem);
 		when(subPath.resolve(anyString())).thenAnswer(invoke -> {
 			String childName = (String) invoke.getArguments()[0];

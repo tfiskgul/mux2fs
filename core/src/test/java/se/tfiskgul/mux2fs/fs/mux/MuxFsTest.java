@@ -29,7 +29,6 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 
@@ -94,8 +93,7 @@ public class MuxFsTest extends MirrorFsTest {
 			throws Exception {
 		// Given
 		Path mkv = mockPath(mirrorRoot, "file.mkv");
-		Path srt = mockPath(mirrorRoot, "file.srt");
-		when(srt.toFile().length()).thenReturn(2893756L);
+		Path srt = mockPath(mirrorRoot, "file.srt", 2893756L);
 		mockDirectoryStream(mirrorRoot, mkv, srt);
 		DirectoryFiller filler = mock(DirectoryFiller.class);
 		// When
@@ -106,6 +104,27 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(filler).add(".", mirrorRoot);
 		verify(filler).add("..", mirrorRoot);
 		verify(filler).addWithExtraSize("file.mkv", mkv, 2893756L);
+		verifyNoMoreInteractions(filler);
+	}
+
+	@Test
+	public void testReadDirManySrtFilesForSameMkv()
+			throws Exception {
+		// Given
+		Path mkv = mockPath(mirrorRoot, "file.mkv");
+		Path srt1 = mockPath(mirrorRoot, "file.eng.srt", 2893756L);
+		Path srt2 = mockPath(mirrorRoot, "file.der.srt", 2345L);
+		Path srt3 = mockPath(mirrorRoot, "file.swe.srt", 78568L);
+		mockDirectoryStream(mirrorRoot, srt1, mkv, srt3, srt2);
+		DirectoryFiller filler = mock(DirectoryFiller.class);
+		// When
+		int result = fs.readdir("/", filler);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+		verify(fileSystem.provider()).newDirectoryStream(eq(mirrorRoot), any());
+		verify(filler).add(".", mirrorRoot);
+		verify(filler).add("..", mirrorRoot);
+		verify(filler).addWithExtraSize("file.mkv", mkv, 2893756L + 2345L + 78568L);
 		verifyNoMoreInteractions(filler);
 	}
 }
