@@ -85,6 +85,7 @@ public class MuxFs extends MirrorFs {
 			// Hide matching .srt files from listing
 			if (muxFiles != null) {
 				for (Path muxFile : muxFiles) {
+					long extraSize = 0;
 					String muxFileNameLower = muxFile.getFileName().toString().toLowerCase();
 					muxFileNameLower = muxFileNameLower.substring(0, muxFileNameLower.length() - 4);
 					if (subFiles != null) {
@@ -94,11 +95,12 @@ public class MuxFs extends MirrorFs {
 							String subFileNameLower = subFile.getFileName().toString().toLowerCase();
 							if (subFileNameLower.startsWith(muxFileNameLower)) {
 								subIterator.remove();
+								extraSize += subFile.toFile().length();
 								logger.debug("Hiding {} due to match with {}", subFile, muxFile);
 							}
 						}
 					}
-					if (!add(filler, muxFile)) {
+					if (!addWithExtraSize(filler, muxFile, extraSize)) {
 						return 0;
 					}
 				}
@@ -115,4 +117,9 @@ public class MuxFs extends MirrorFs {
 			return 0;
 		});
 	}
+
+	private boolean addWithExtraSize(DirectoryFiller filler, Path entry, long extraSize) {
+		return add(entry, (fileName) -> filler.addWithExtraSize(fileName, entry, extraSize));
+	}
+
 }

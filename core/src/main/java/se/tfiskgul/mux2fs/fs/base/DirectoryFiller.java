@@ -30,4 +30,7 @@ public interface DirectoryFiller {
 
 	int add(String name, Path path)
 			throws IOException;
+
+	int addWithExtraSize(String name, Path path, long extraSize)
+			throws IOException;
 }

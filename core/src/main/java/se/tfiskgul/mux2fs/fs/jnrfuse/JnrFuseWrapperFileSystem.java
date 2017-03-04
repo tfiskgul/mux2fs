@@ -118,5 +118,18 @@ public final class JnrFuseWrapperFileSystem extends FuseStubFS implements NamedJ
 			unixFileStat.fill(fuseStat);
 			return filter.apply(buf, name, fuseStat, 0);
 		}
+
+		@Override
+		public int addWithExtraSize(String name, Path path, long extraSize)
+				throws IOException {
+			FileStat fuseStat = new FileStat(Runtime.getSystemRuntime());
+			JnrFuseUnixFileStat unixFileStat = new JnrFuseUnixFileStat();
+			unixFileStat.stat(path);
+			unixFileStat.fill(fuseStat);
+			if (extraSize != 0) {
+				fuseStat.st_size.set(fuseStat.st_size.get() + extraSize);
+			}
+			return filter.apply(buf, name, fuseStat, 0);
+		}
 	}
 }

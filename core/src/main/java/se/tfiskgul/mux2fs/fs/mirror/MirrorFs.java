@@ -207,7 +207,11 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 	 * @return false only on enumeration resource exhaustion. Any IOException is ignored, logged, and returns true.
 	 */
 	protected boolean add(DirectoryFiller filler, Path entry) {
-		return getFileName(entry).flatMap(fileName -> Try.withCatch(() -> filler.add(fileName, entry) == 0, IOException.class, NoSuchFileException.class) //
+		return add(entry, (fileName) -> filler.add(fileName, entry));
+	}
+
+	protected boolean add(Path entry, Try.CheckedFunction<String, Integer, Exception> supplier) {
+		return getFileName(entry).flatMap(fileName -> Try.withCatch(() -> supplier.apply(fileName) == 0, IOException.class, NoSuchFileException.class) //
 				.onFail(e -> logger.trace("", e)).toOptional()).orElse(true); // Ignore, files might get deleted / renamed while iterating
 	}
 
