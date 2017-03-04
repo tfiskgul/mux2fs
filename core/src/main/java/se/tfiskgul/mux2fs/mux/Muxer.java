@@ -34,6 +34,7 @@ import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
@@ -103,7 +104,7 @@ public class Muxer {
 			output.toFile().deleteOnExit();
 			try {
 				ProcessBuilder builder = factory.from("mkvmerge", "-o", output.toString(), mkv.toString(), srt.toString());
-				builder.directory(tempDir.toFile()).inheritIO(); // FIXME: Better solution than inheritIO
+				builder.directory(tempDir.toFile()).inheritIO(); // TODO: Better solution than inheritIO
 				process = builder.start();
 			} catch (IOException e) {
 				state.set(FAILED);
@@ -136,6 +137,37 @@ public class Muxer {
 			}
 		}
 		return state.get();
+	}
+
+	// TODO: A better Result class wrapping stdout + stderr as well as the code.
+	public int waitFor()
+			throws InterruptedException {
+		switch (state()) {
+			case NOT_STARTED:
+				throw new IllegalStateException("Not started");
+			case FAILED:
+				return process != null ? process.exitValue() : -127;
+			case RUNNING:
+			case SUCCESSFUL:
+				return process.waitFor();
+			default:
+				throw new IllegalStateException("BUG: Unkown state");
+		}
+	}
+
+	public boolean waitFor(long timeout, TimeUnit unit)
+			throws InterruptedException {
+		switch (state()) {
+			case NOT_STARTED:
+				throw new IllegalStateException("Not started");
+			case FAILED:
+				return true;
+			case RUNNING:
+			case SUCCESSFUL:
+				return process.waitFor(timeout, unit);
+			default:
+				throw new IllegalStateException("BUG: Unkown state");
+		}
 	}
 
 	public Optional<Path> getOutput() {

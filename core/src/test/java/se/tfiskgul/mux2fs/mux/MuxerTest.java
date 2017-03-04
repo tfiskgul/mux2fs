@@ -23,12 +23,16 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs.mux;
 
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
@@ -38,6 +42,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.spi.FileSystemProvider;
 
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -63,16 +68,28 @@ public class MuxerTest extends Fixture {
 
 	@Rule
 	public final ExpectedException exception = ExpectedException.none();
+	private FileSystem fileSystem;
+	private FileSystemProvider provider;
+	private Path root;
+	private Path mkv;
+	private Path srt;
+	private Path tempDir;
+
+	@Before
+	public void beforeTest()
+			throws Exception {
+		fileSystem = mockFileSystem();
+		provider = fileSystem.provider();
+		root = mockPath("", fileSystem);
+		mkv = mockPath(root, "mkv.mkv");
+		srt = mockPath(root, "srt.srt");
+		tempDir = mockPath(root, "tmp");
+	}
 
 	@Test
 	public void testConstructor()
 			throws Exception {
 		// Given
-		FileSystem fileSystem = mockFileSystem();
-		Path root = mockPath("", fileSystem);
-		Path mkv = mockPath(root, "mkv.mkv");
-		Path srt = mockPath(root, "srt.srt");
-		Path tempDir = mockPath(root, "tmp");
 		// When
 		Muxer muxer = Muxer.of(mkv, srt, tempDir);
 		// Then
@@ -82,12 +99,6 @@ public class MuxerTest extends Fixture {
 	@Test
 	public void testMkvMustBeReadable()
 			throws Exception {
-		FileSystem fileSystem = mockFileSystem();
-		FileSystemProvider provider = fileSystem.provider();
-		Path root = mockPath("", fileSystem);
-		Path mkv = mockPath(root, "mkv.mkv");
-		Path srt = mockPath(root, "srt.srt");
-		Path tempDir = mockPath(root, "tmp");
 		doThrow(new NoSuchFileException(null)).when(provider).checkAccess(mkv, AccessMode.READ);
 		exception.expect(NoSuchFileException.class);
 		Muxer.of(mkv, srt, tempDir);
@@ -96,12 +107,6 @@ public class MuxerTest extends Fixture {
 	@Test
 	public void testSrtMustBeReadable()
 			throws Exception {
-		FileSystem fileSystem = mockFileSystem();
-		FileSystemProvider provider = fileSystem.provider();
-		Path root = mockPath("", fileSystem);
-		Path mkv = mockPath(root, "mkv.mkv");
-		Path srt = mockPath(root, "srt.srt");
-		Path tempDir = mockPath(root, "tmp");
 		doThrow(new NoSuchFileException(null)).when(provider).checkAccess(srt, AccessMode.READ);
 		exception.expect(NoSuchFileException.class);
 		Muxer.of(mkv, srt, tempDir);
@@ -110,12 +115,6 @@ public class MuxerTest extends Fixture {
 	@Test
 	public void testempDirMustBeWriteable()
 			throws Exception {
-		FileSystem fileSystem = mockFileSystem();
-		FileSystemProvider provider = fileSystem.provider();
-		Path root = mockPath("", fileSystem);
-		Path mkv = mockPath(root, "mkv.mkv");
-		Path srt = mockPath(root, "srt.srt");
-		Path tempDir = mockPath(root, "tmp");
 		doThrow(new NoSuchFileException(null)).when(provider).checkAccess(tempDir, AccessMode.WRITE);
 		exception.expect(NoSuchFileException.class);
 		Muxer.of(mkv, srt, tempDir);
@@ -125,11 +124,6 @@ public class MuxerTest extends Fixture {
 	public void testStart()
 			throws Exception {
 		// Given
-		FileSystem fileSystem = mockFileSystem();
-		Path root = mockPath("", fileSystem);
-		Path mkv = mockPath(root, "mkv.mkv");
-		Path srt = mockPath(root, "srt.srt");
-		Path tempDir = mockPath(root, "tmp");
 		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
 		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
 		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
@@ -149,11 +143,6 @@ public class MuxerTest extends Fixture {
 	public void testStartIoExceptionGivesFailedState()
 			throws Exception {
 		// Given
-		FileSystem fileSystem = mockFileSystem();
-		Path root = mockPath("", fileSystem);
-		Path mkv = mockPath(root, "mkv.mkv");
-		Path srt = mockPath(root, "srt.srt");
-		Path tempDir = mockPath(root, "tmp");
 		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
 		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
 		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
@@ -179,11 +168,6 @@ public class MuxerTest extends Fixture {
 	public void testStartStateChangeSuccess()
 			throws Exception {
 		// Given
-		FileSystem fileSystem = mockFileSystem();
-		Path root = mockPath("", fileSystem);
-		Path mkv = mockPath(root, "mkv.mkv");
-		Path srt = mockPath(root, "srt.srt");
-		Path tempDir = mockPath(root, "tmp");
 		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
 		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
 		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
@@ -205,11 +189,6 @@ public class MuxerTest extends Fixture {
 	public void testStartStateChangeFailed()
 			throws Exception {
 		// Given
-		FileSystem fileSystem = mockFileSystem();
-		Path root = mockPath("", fileSystem);
-		Path mkv = mockPath(root, "mkv.mkv");
-		Path srt = mockPath(root, "srt.srt");
-		Path tempDir = mockPath(root, "tmp");
 		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
 		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
 		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
@@ -226,5 +205,171 @@ public class MuxerTest extends Fixture {
 		assertThat(state).isEqualTo(State.FAILED);
 		assertThat(muxer.getOutput()).isEmpty();
 		verify(muxer.getOutputForTest().toFile()).delete();
+	}
+
+	@Test
+	public void testWaitForNonRunningFailed()
+			throws Exception {
+		// Given
+		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
+		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
+		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
+		when(builder.directory(any())).thenReturn(builder);
+		Process process = mock(Process.class);
+		when(process.isAlive()).thenReturn(false);
+		when(process.exitValue()).thenReturn(-33);
+		when(builder.start()).thenReturn(process);
+		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
+		muxer.start();
+		// When
+		int exitCode = muxer.waitFor();
+		// Then
+		assertThat(exitCode).isEqualTo(-33);
+		verify(process, times(2)).exitValue();
+		verify(process).isAlive();
+		verifyNoMoreInteractions(process);
+	}
+
+	@Test
+	public void testWaitForRunningFailed()
+			throws Exception {
+		// Given
+		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
+		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
+		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
+		when(builder.directory(any())).thenReturn(builder);
+		Process process = mock(Process.class);
+		when(process.isAlive()).thenReturn(true);
+		when(process.waitFor()).thenReturn(-33);
+		when(builder.start()).thenReturn(process);
+		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
+		muxer.start();
+		// When
+		int exitCode = muxer.waitFor();
+		// Then
+		assertThat(exitCode).isEqualTo(-33);
+		verify(process).waitFor();
+		verify(process).isAlive();
+		verifyNoMoreInteractions(process);
+	}
+
+	@Test
+	public void testWaitForRunningSuccessful()
+			throws Exception {
+		// Given
+		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
+		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
+		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
+		when(builder.directory(any())).thenReturn(builder);
+		Process process = mock(Process.class);
+		when(process.isAlive()).thenReturn(true);
+		when(process.waitFor()).thenReturn(SUCCESS);
+		when(builder.start()).thenReturn(process);
+		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
+		muxer.start();
+		// When
+		int exitCode = muxer.waitFor();
+		// Then
+		assertThat(exitCode).isEqualTo(SUCCESS);
+		verify(process).waitFor();
+		verify(process).isAlive();
+		verifyNoMoreInteractions(process);
+	}
+
+	@Test
+	public void testWaitForNonRunningSuccessful()
+			throws Exception {
+		// Given
+		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
+		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
+		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
+		when(builder.directory(any())).thenReturn(builder);
+		Process process = mock(Process.class);
+		when(process.isAlive()).thenReturn(false);
+		when(process.waitFor()).thenReturn(SUCCESS);
+		when(process.exitValue()).thenReturn(SUCCESS);
+		when(builder.start()).thenReturn(process);
+		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
+		muxer.start();
+		// When
+		int exitCode = muxer.waitFor();
+		// Then
+		assertThat(exitCode).isEqualTo(SUCCESS);
+		verify(process).isAlive();
+		verify(process).exitValue();
+		verify(process).waitFor();
+		verifyNoMoreInteractions(process);
+	}
+
+	@Test
+	public void testWaitForTimeoutNonRunningSuccessful()
+			throws Exception {
+		// Given
+		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
+		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
+		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
+		when(builder.directory(any())).thenReturn(builder);
+		Process process = mock(Process.class);
+		when(process.isAlive()).thenReturn(false);
+		when(process.exitValue()).thenReturn(SUCCESS);
+		when(process.waitFor(anyLong(), any())).thenReturn(true);
+		when(builder.start()).thenReturn(process);
+		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
+		muxer.start();
+		// When
+		boolean result = muxer.waitFor(1, NANOSECONDS);
+		// Then
+		assertThat(result).isTrue();
+		verify(process).isAlive();
+		verify(process).exitValue();
+		verify(process).waitFor(1, NANOSECONDS);
+		verifyNoMoreInteractions(process);
+	}
+
+	@Test
+	public void testWaitForTimeoutRunningSuccessful()
+			throws Exception {
+		// Given
+		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
+		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
+		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
+		when(builder.directory(any())).thenReturn(builder);
+		Process process = mock(Process.class);
+		when(process.isAlive()).thenReturn(true);
+		when(process.waitFor(anyLong(), any())).thenReturn(true);
+		when(builder.start()).thenReturn(process);
+		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
+		muxer.start();
+		// When
+		boolean result = muxer.waitFor(1, NANOSECONDS);
+		// Then
+		assertThat(result).isTrue();
+		verify(process).isAlive();
+		verify(process).waitFor(1, NANOSECONDS);
+		verifyNoMoreInteractions(process);
+	}
+
+	@Test
+	public void testWaitForTimeoutNonRunningFailed()
+			throws Exception {
+		// Given
+		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
+		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
+		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
+		when(builder.directory(any())).thenReturn(builder);
+		Process process = mock(Process.class);
+		when(process.isAlive()).thenReturn(false);
+		when(process.exitValue()).thenReturn(-3425);
+		when(process.waitFor(anyLong(), any())).thenReturn(true);
+		when(builder.start()).thenReturn(process);
+		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
+		muxer.start();
+		// When
+		boolean result = muxer.waitFor(1, NANOSECONDS);
+		// Then
+		assertThat(result).isTrue();
+		verify(process).isAlive();
+		verify(process).exitValue();
+		verifyNoMoreInteractions(process);
 	}
 }
