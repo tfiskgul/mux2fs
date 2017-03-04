@@ -73,7 +73,7 @@ public class MirrorFsTest extends MirrorFsFixture {
 			throws Exception {
 		// Given
 		StatFiller stat = mock(StatFiller.class);
-		Path foo = mockPath(mirrorRoot, "/foo");
+		Path foo = mockPath("/foo");
 		// When
 		int result = fs.getattr("/foo", stat);
 		// Then
@@ -86,7 +86,7 @@ public class MirrorFsTest extends MirrorFsFixture {
 			throws Exception {
 		// Given
 		StatFiller stat = mock(StatFiller.class);
-		Path foo = mockPath(mirrorRoot, "/foo");
+		Path foo = mockPath("/foo");
 		when(stat.stat(foo)).thenThrow(new NoSuchFileException(null));
 		// When
 		int result = fs.getattr("/foo", stat);
@@ -99,7 +99,7 @@ public class MirrorFsTest extends MirrorFsFixture {
 			throws Exception {
 		// Given
 		StatFiller stat = mock(StatFiller.class);
-		Path foo = mockPath(mirrorRoot, "/foo");
+		Path foo = mockPath("/foo");
 		when(stat.stat(foo)).thenThrow(new AccessDeniedException(null));
 		// When
 		int result = fs.getattr("/foo", stat);
@@ -112,7 +112,7 @@ public class MirrorFsTest extends MirrorFsFixture {
 			throws Exception {
 		// Given
 		StatFiller stat = mock(StatFiller.class);
-		Path foo = mockPath(mirrorRoot, "/foo");
+		Path foo = mockPath("/foo");
 		when(stat.stat(foo)).thenThrow(new IOException());
 		// When
 		int result = fs.getattr("/foo", stat);
@@ -124,8 +124,8 @@ public class MirrorFsTest extends MirrorFsFixture {
 	public void testReadDir()
 			throws Exception {
 		// Given
-		Path foo = mockPath(mirrorRoot, "foo");
-		Path bar = mockPath(mirrorRoot, "bar");
+		Path foo = mockPath("foo");
+		Path bar = mockPath("bar");
 		mockDirectoryStream(mirrorRoot, foo, bar);
 		DirectoryFiller filler = mock(DirectoryFiller.class);
 		// When
@@ -168,8 +168,8 @@ public class MirrorFsTest extends MirrorFsFixture {
 	public void testReadDirStopsEnumerationOnResourceExhaustion()
 			throws Exception {
 		// Given
-		Path foo = mockPath(mirrorRoot, "foo");
-		Path bar = mockPath(mirrorRoot, "bar");
+		Path foo = mockPath("foo");
+		Path bar = mockPath("bar");
 		mockDirectoryStream(mirrorRoot, foo, bar);
 		DirectoryFiller filler = mock(DirectoryFiller.class);
 		when(filler.add("foo", foo)).thenReturn(1); // Signify out of buffer memory, stop enumeration please
@@ -234,8 +234,8 @@ public class MirrorFsTest extends MirrorFsFixture {
 	public void testReadDirContinuesEnumerationOnError()
 			throws Exception {
 		// Given
-		Path foo = mockPath(mirrorRoot, "foo");
-		Path bar = mockPath(mirrorRoot, "bar");
+		Path foo = mockPath("foo");
+		Path bar = mockPath("bar");
 		mockDirectoryStream(mirrorRoot, foo, bar);
 		DirectoryFiller filler = mock(DirectoryFiller.class);
 		when(filler.add("foo", foo)).thenThrow(new IOException());
@@ -267,7 +267,7 @@ public class MirrorFsTest extends MirrorFsFixture {
 			throws Exception {
 		// Given
 		FileHandleFiller filler = mock(FileHandleFiller.class);
-		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		Path fooBar = mockPath("foo.bar");
 		when(fileSystem.provider().newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)))).thenReturn(mock(FileChannel.class));
 		// When
 		int result = fs.open("foo.bar", filler);
@@ -286,7 +286,7 @@ public class MirrorFsTest extends MirrorFsFixture {
 		FileHandleFiller filler = mock(FileHandleFiller.class);
 		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
 		doNothing().when(filler).setFileHandle(handleCaptor.capture());
-		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		Path fooBar = mockPath("foo.bar");
 		when(fileSystem.provider().newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)))).thenReturn(mock(FileChannel.class));
 		// When
 		int result = fs.open("foo.bar", filler);
@@ -367,7 +367,7 @@ public class MirrorFsTest extends MirrorFsFixture {
 		FileHandleFiller filler = mock(FileHandleFiller.class);
 		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
 		doNothing().when(filler).setFileHandle(handleCaptor.capture());
-		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		Path fooBar = mockPath("foo.bar");
 		FileChannel fileChannel = mock(FileChannel.class);
 		when(fileSystem.provider().newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)))).thenReturn(fileChannel);
 		fs.open("foo.bar", filler);
@@ -390,7 +390,7 @@ public class MirrorFsTest extends MirrorFsFixture {
 		FileHandleFiller filler = mock(FileHandleFiller.class);
 		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
 		doNothing().when(filler).setFileHandle(handleCaptor.capture());
-		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		Path fooBar = mockPath("foo.bar");
 		FileChannel fileChannel = mock(FileChannel.class);
 		when(fileSystem.provider().newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)))).thenReturn(fileChannel);
 		fs.open("foo.bar", filler);
@@ -413,7 +413,7 @@ public class MirrorFsTest extends MirrorFsFixture {
 		FileHandleFiller filler = mock(FileHandleFiller.class);
 		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
 		doNothing().when(filler).setFileHandle(handleCaptor.capture());
-		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		Path fooBar = mockPath("foo.bar");
 		FileChannel fileChannel = mock(FileChannel.class);
 		when(fileSystem.provider().newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)))).thenReturn(fileChannel);
 		fs.open("foo.bar", filler);
@@ -438,8 +438,8 @@ public class MirrorFsTest extends MirrorFsFixture {
 	public void testReadLink()
 			throws Exception {
 		// Given
-		Path fooBar = mockPath(mirrorRoot, "foo.bar");
-		Path target = mockPath(mirrorRoot, "bar.foo");
+		Path fooBar = mockPath("foo.bar");
+		Path target = mockPath("bar.foo");
 		when(fileSystem.provider().readSymbolicLink(fooBar)).thenReturn(target);
 		// When
 		int result = fs.readLink("foo.bar", (name) -> assertThat(name).isEqualTo("bar.foo"), 1024);
@@ -474,7 +474,7 @@ public class MirrorFsTest extends MirrorFsFixture {
 	private void readLinkThrow(int expected, Exception exception)
 			throws Exception {
 		// Given
-		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		Path fooBar = mockPath("foo.bar");
 		when(fileSystem.provider().readSymbolicLink(fooBar)).thenThrow(exception);
 		// When
 		int result = fs.readLink("foo.bar", (name) -> fail(), 1024);
@@ -486,8 +486,8 @@ public class MirrorFsTest extends MirrorFsFixture {
 	public void testReadLinkLongNameIsTruncated()
 			throws Exception {
 		// Given
-		Path fooBar = mockPath(mirrorRoot, "foo.bar");
-		Path target = mockPath(mirrorRoot, "ThisIsALongName");
+		Path fooBar = mockPath("foo.bar");
+		Path target = mockPath("ThisIsALongName");
 		when(fileSystem.provider().readSymbolicLink(fooBar)).thenReturn(target);
 		// When
 		int result = fs.readLink("foo.bar", (name) -> assertThat(name).isEqualTo("ThisI"), 5);

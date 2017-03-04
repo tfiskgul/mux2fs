@@ -53,8 +53,8 @@ public class MuxFsTest extends MirrorFsTest {
 	public void testReadDirHidesMatchingSubtitles()
 			throws Exception {
 		// Given
-		Path mkv = mockPath(mirrorRoot, "file.mkv");
-		Path srt = mockPath(mirrorRoot, "file.srt");
+		Path mkv = mockPath("file.mkv");
+		Path srt = mockPath("file.srt");
 		mockDirectoryStream(mirrorRoot, mkv, srt);
 		DirectoryFiller filler = mock(DirectoryFiller.class);
 		// When
@@ -72,8 +72,8 @@ public class MuxFsTest extends MirrorFsTest {
 	public void testReadDirDoesntHideNonMatchingSubtitles()
 			throws Exception {
 		// Given
-		Path mkv = mockPath(mirrorRoot, "file.mkv");
-		Path srt = mockPath(mirrorRoot, "unrelated.srt");
+		Path mkv = mockPath("file.mkv");
+		Path srt = mockPath("unrelated.srt");
 		mockDirectoryStream(mirrorRoot, mkv, srt);
 		DirectoryFiller filler = mock(DirectoryFiller.class);
 		// When
@@ -92,8 +92,8 @@ public class MuxFsTest extends MirrorFsTest {
 	public void testReadDirSizeOfMatchingSrtIsAddedToMkv()
 			throws Exception {
 		// Given
-		Path mkv = mockPath(mirrorRoot, "file.mkv");
-		Path srt = mockPath(mirrorRoot, "file.srt", 2893756L);
+		Path mkv = mockPath("file.mkv");
+		Path srt = mockPath("file.srt", 2893756L);
 		mockDirectoryStream(mirrorRoot, mkv, srt);
 		DirectoryFiller filler = mock(DirectoryFiller.class);
 		// When
@@ -111,10 +111,10 @@ public class MuxFsTest extends MirrorFsTest {
 	public void testReadDirManySrtFilesForSameMkv()
 			throws Exception {
 		// Given
-		Path mkv = mockPath(mirrorRoot, "file.mkv");
-		Path srt1 = mockPath(mirrorRoot, "file.eng.srt", 2893756L);
-		Path srt2 = mockPath(mirrorRoot, "file.der.srt", 2345L);
-		Path srt3 = mockPath(mirrorRoot, "file.swe.srt", 78568L);
+		Path mkv = mockPath("file.mkv");
+		Path srt1 = mockPath("file.eng.srt", 2893756L);
+		Path srt2 = mockPath("file.der.srt", 2345L);
+		Path srt3 = mockPath("file.swe.srt", 78568L);
 		mockDirectoryStream(mirrorRoot, srt1, mkv, srt3, srt2);
 		DirectoryFiller filler = mock(DirectoryFiller.class);
 		// When

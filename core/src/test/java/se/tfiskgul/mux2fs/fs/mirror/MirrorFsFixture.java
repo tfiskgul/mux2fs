@@ -42,4 +42,12 @@ public class MirrorFsFixture extends Fixture {
 		mirrorRoot = mockPath("/mirror/root/", fileSystem);
 		fs = new MirrorFs(mirrorRoot);
 	}
+
+	protected Path mockPath(String name) {
+		return mockPath(mirrorRoot, name);
+	}
+
+	protected Path mockPath(String name, long extraSize) {
+		return mockPath(mirrorRoot, name, extraSize);
+	}
 }
