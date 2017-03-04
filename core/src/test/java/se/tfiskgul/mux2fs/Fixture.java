@@ -35,6 +35,9 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.nio.file.spi.FileSystemProvider;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -89,7 +92,14 @@ public abstract class Fixture {
 
 	protected DirectoryStream<Path> mockDirectoryStream(Path root, Path... entries)
 			throws IOException {
-		return mockDirectoryStream(root, list(entries));
+		return mockDirectoryStream(root, ImmutableList.copyOf(entries));
+	}
+
+	protected DirectoryStream<Path> mockShuffledDirectoryStream(Path root, Path... entries)
+			throws IOException {
+		ArrayList<Path> shuffled = new ArrayList<Path>(Arrays.asList(entries));
+		Collections.shuffle(shuffled);
+		return mockDirectoryStream(root, ImmutableList.copyOf(shuffled));
 	}
 
 	@SuppressWarnings("unchecked")
