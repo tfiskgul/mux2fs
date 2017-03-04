@@ -190,8 +190,17 @@ public class UnixFileStatImpl implements UnixFileStat, StatFiller {
 		return this;
 	}
 
+	@Override
+	public UnixFileStat statWithExtraSize(Path path, long extraSize)
+			throws IOException {
+		stat(path);
+		size += extraSize;
+		return this;
+	}
+
 	private Instant getInstant(Map<String, Object> map, String string) {
 		FileTime time = (FileTime) map.get(string);
 		return time.toInstant();
 	}
+
 }

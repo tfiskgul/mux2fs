@@ -36,6 +36,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
+import se.tfiskgul.mux2fs.fs.base.StatFiller;
 import se.tfiskgul.mux2fs.fs.mirror.MirrorFsTest;
 
 public class MuxFsTest extends MirrorFsTest {
@@ -159,5 +160,49 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(filler).addWithExtraSize("file4.mkv", mkv4, 235468L + 62369L + 468L);
 		verify(filler).add("file4.txt", mkv4txt1);
 		verifyNoMoreInteractions(filler);
+	}
+
+	@Test
+	public void testGetAttrForMkvWithMatchingSrtHasExtraSize()
+			throws Exception {
+		// Given
+		StatFiller stat = mock(StatFiller.class);
+		Path mkv = mockPath("file.mkv");
+		Path srt1 = mockPath("file.eng.srt", 2893756L);
+		Path srt2 = mockPath("file.der.srt", 2345L);
+		Path srt3 = mockPath("file.swe.srt", 78568L);
+		mockDirectoryStream(mirrorRoot, srt1, mkv, srt3, srt2);
+		// When
+		int result = fs.getattr("file.mkv", stat);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+		verify(stat).statWithExtraSize(mkv, 2893756L + 2345L + 78568L);
+		verifyNoMoreInteractions(stat);
+	}
+
+	@Test
+	public void testGetAttrManyFiles()
+			throws Exception {
+		// Given
+		StatFiller stat = mock(StatFiller.class);
+		Path mkv1 = mockPath("file1.mkv");
+		Path mkv1txt1 = mockPath("file1.txt", 123456789L);
+		Path mkv1srt1 = mockPath("file1.eng.srt", 2893756L);
+		Path mkv1srt2 = mockPath("file1.der.srt", 2345L);
+		Path mkv1srt3 = mockPath("file1.swe.srt", 78568L);
+		Path mkv2 = mockPath("file2.mkv");
+		Path mkv3srt1 = mockPath("file3.srt", 324685L);
+		Path mkv4 = mockPath("file4.mkv");
+		Path mkv4txt1 = mockPath("file4.txt", 4725L);
+		Path mkv4srt1 = mockPath("file4.esp.srt", 235468L);
+		Path mkv4srt2 = mockPath("file4.klingon.srt", 62369L);
+		Path mkv4srt3 = mockPath("file4.elvish.srt", 468L);
+		mockShuffledDirectoryStream(mirrorRoot, mkv1txt1, mkv1srt1, mkv1, mkv1srt3, mkv1srt2, mkv2, mkv3srt1, mkv4, mkv4txt1, mkv4srt1, mkv4srt2, mkv4srt3);
+		// When
+		int result = fs.getattr("file1.mkv", stat);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+		verify(stat).statWithExtraSize(mkv1, 2893756L + 2345L + 78568L);
+		verifyNoMoreInteractions(stat);
 	}
 }

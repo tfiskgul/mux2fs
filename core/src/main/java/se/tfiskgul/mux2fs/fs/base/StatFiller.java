@@ -30,4 +30,7 @@ public interface StatFiller {
 
 	UnixFileStat stat(Path path)
 			throws IOException;
+
+	UnixFileStat statWithExtraSize(Path path, long extraSize)
+			throws IOException;
 }

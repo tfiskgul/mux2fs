@@ -81,6 +81,7 @@ public abstract class Fixture {
 			String childName = (String) invoke.getArguments()[0];
 			return mockPath(subPath, childName);
 		});
+		when(subPath.getParent()).thenReturn(parent);
 		when(fileSystem.getPath(parent.toString(), name)).thenReturn(subPath);
 		String fullPath = (parent.toString() + "/" + name).replace("//", "/");
 		when(subPath.toString()).thenReturn(fullPath);

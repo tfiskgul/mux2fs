@@ -23,6 +23,7 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs.fs.mux;
 
+import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
+import se.tfiskgul.mux2fs.fs.base.StatFiller;
 import se.tfiskgul.mux2fs.fs.mirror.MirrorFs;
 
 public class MuxFs extends MirrorFs {
@@ -118,8 +120,35 @@ public class MuxFs extends MirrorFs {
 		});
 	}
 
+	@Override
+	public int getattr(String path, StatFiller stat) {
+		logger.debug(path);
+		if (!path.endsWith(".mkv")) {
+			return super.getattr(path, stat);
+		}
+		Path muxFile = real(path);
+		return tryCatchRunnable.apply(() -> stat.statWithExtraSize(muxFile, getExtraSizeOf(muxFile)));
+	}
+
+	private long getExtraSizeOf(Path muxFile) {
+		return getFileName(muxFile).map(name -> {
+			String muxFileNameLower = name.toLowerCase().substring(0, name.length() - 4);
+			long extraSize = 0;
+			try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(muxFile.getParent())) {
+				for (Path entry : directoryStream) {
+					String entryName = entry.getFileName().toString();
+					if (entryName.endsWith(".srt") && entryName.toLowerCase().startsWith(muxFileNameLower)) {
+						extraSize += entry.toFile().length();
+					}
+				}
+			} catch (IOException e) { // Ignored, extra size is non-critical
+				logger.trace("", e);
+			}
+			return extraSize;
+		}).orElse(0L);
+	}
+
 	private boolean addWithExtraSize(DirectoryFiller filler, Path entry, long extraSize) {
 		return add(entry, (fileName) -> filler.addWithExtraSize(fileName, entry, extraSize));
 	}
-
 }
