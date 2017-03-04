@@ -77,7 +77,7 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 				.recoverFor(IOException.class, e -> {
 					logger.warn("", e); // Unmapped IOException, log warning
 					return -ErrorCodes.EIO();
-				}).orElse(-ErrorCodes.EIO());
+				}).get();
 	};
 
 	protected final Function<Try.CheckedRunnable<IOException>, Integer> tryCatchRunnable = (runnable) -> {

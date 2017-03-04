@@ -108,6 +108,7 @@ public abstract class Fixture {
 			throws IOException {
 		DirectoryStream<Path> directoryStream = mock(DirectoryStream.class);
 		when(directoryStream.iterator()).thenReturn(entries.iterator());
+		when(directoryStream.spliterator()).thenReturn(entries.spliterator());
 		when(root.getFileSystem().provider().newDirectoryStream(eq(root), any())).thenReturn(directoryStream);
 		return directoryStream;
 	}

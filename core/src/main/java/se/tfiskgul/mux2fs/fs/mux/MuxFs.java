@@ -30,6 +30,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -131,21 +133,24 @@ public class MuxFs extends MirrorFs {
 	}
 
 	private long getExtraSizeOf(Path muxFile) {
-		return getFileName(muxFile).map(name -> {
-			String muxFileNameLower = name.toLowerCase().substring(0, name.length() - 4);
-			long extraSize = 0;
-			try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(muxFile.getParent())) {
-				for (Path entry : directoryStream) {
-					String entryName = entry.getFileName().toString();
-					if (entryName.endsWith(".srt") && entryName.toLowerCase().startsWith(muxFileNameLower)) {
-						extraSize += entry.toFile().length();
-					}
-				}
-			} catch (IOException e) { // Ignored, extra size is non-critical
-				logger.trace("", e);
-			}
-			return extraSize;
-		}).orElse(0L);
+		return matchingSubFiles(muxFile).reduce(0L, (buf, path) -> buf + path.toFile().length(), (a, b) -> a + b);
+	}
+
+	private Stream<Path> matchingSubFiles(Path muxFile) {
+		return getFileName(muxFile).map(name -> matchingSubFiles(muxFile.getParent(), name)).orElse(Stream.empty());
+	}
+
+	private Stream<Path> matchingSubFiles(Path parent, String muxName) {
+		String muxFileNameLower = muxName.toLowerCase().substring(0, muxName.length() - 4);
+		try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(parent)) {
+			return StreamSupport.stream(directoryStream.spliterator(), false).filter(entry -> {
+				String entryName = entry.getFileName().toString();
+				return entryName.endsWith(".srt") && entryName.toLowerCase().startsWith(muxFileNameLower);
+			});
+		} catch (IOException e) { // Ignored, non-critical
+			logger.trace("", e);
+			return Stream.empty();
+		}
 	}
 
 	private boolean addWithExtraSize(DirectoryFiller filler, Path entry, long extraSize) {
