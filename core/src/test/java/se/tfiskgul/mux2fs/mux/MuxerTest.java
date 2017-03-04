@@ -74,6 +74,9 @@ public class MuxerTest extends Fixture {
 	private Path mkv;
 	private Path srt;
 	private Path tempDir;
+	private ProcessBuilderFactory factory;
+	private ProcessBuilder builder;
+	private Process process;
 
 	@Before
 	public void beforeTest()
@@ -84,6 +87,11 @@ public class MuxerTest extends Fixture {
 		mkv = mockPath(root, "mkv.mkv");
 		srt = mockPath(root, "srt.srt");
 		tempDir = mockPath(root, "tmp");
+		factory = mock(ProcessBuilderFactory.class);
+		builder = PowerMockito.mock(ProcessBuilder.class);
+		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
+		when(builder.directory(any())).thenReturn(builder);
+		process = mock(Process.class);
 	}
 
 	@Test
@@ -124,10 +132,6 @@ public class MuxerTest extends Fixture {
 	public void testStart()
 			throws Exception {
 		// Given
-		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
-		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
-		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
-		when(builder.directory(any())).thenReturn(builder);
 		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		// When
 		muxer.start();
@@ -143,10 +147,6 @@ public class MuxerTest extends Fixture {
 	public void testStartIoExceptionGivesFailedState()
 			throws Exception {
 		// Given
-		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
-		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
-		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
-		when(builder.directory(any())).thenReturn(builder);
 		when(builder.start()).thenThrow(new IOException());
 		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		// When
@@ -168,11 +168,6 @@ public class MuxerTest extends Fixture {
 	public void testStartStateChangeSuccess()
 			throws Exception {
 		// Given
-		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
-		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
-		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
-		when(builder.directory(any())).thenReturn(builder);
-		Process process = mock(Process.class);
 		when(process.isAlive()).thenReturn(false);
 		when(builder.start()).thenReturn(process);
 		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
@@ -189,11 +184,6 @@ public class MuxerTest extends Fixture {
 	public void testStartStateChangeFailed()
 			throws Exception {
 		// Given
-		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
-		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
-		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
-		when(builder.directory(any())).thenReturn(builder);
-		Process process = mock(Process.class);
 		when(process.isAlive()).thenReturn(false);
 		when(process.exitValue()).thenReturn(-1);
 		when(builder.start()).thenReturn(process);
@@ -211,11 +201,6 @@ public class MuxerTest extends Fixture {
 	public void testWaitForNonRunningFailed()
 			throws Exception {
 		// Given
-		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
-		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
-		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
-		when(builder.directory(any())).thenReturn(builder);
-		Process process = mock(Process.class);
 		when(process.isAlive()).thenReturn(false);
 		when(process.exitValue()).thenReturn(-33);
 		when(builder.start()).thenReturn(process);
@@ -234,11 +219,6 @@ public class MuxerTest extends Fixture {
 	public void testWaitForRunningFailed()
 			throws Exception {
 		// Given
-		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
-		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
-		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
-		when(builder.directory(any())).thenReturn(builder);
-		Process process = mock(Process.class);
 		when(process.isAlive()).thenReturn(true);
 		when(process.waitFor()).thenReturn(-33);
 		when(builder.start()).thenReturn(process);
@@ -257,11 +237,6 @@ public class MuxerTest extends Fixture {
 	public void testWaitForRunningSuccessful()
 			throws Exception {
 		// Given
-		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
-		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
-		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
-		when(builder.directory(any())).thenReturn(builder);
-		Process process = mock(Process.class);
 		when(process.isAlive()).thenReturn(true);
 		when(process.waitFor()).thenReturn(SUCCESS);
 		when(builder.start()).thenReturn(process);
@@ -280,11 +255,6 @@ public class MuxerTest extends Fixture {
 	public void testWaitForNonRunningSuccessful()
 			throws Exception {
 		// Given
-		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
-		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
-		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
-		when(builder.directory(any())).thenReturn(builder);
-		Process process = mock(Process.class);
 		when(process.isAlive()).thenReturn(false);
 		when(process.waitFor()).thenReturn(SUCCESS);
 		when(process.exitValue()).thenReturn(SUCCESS);
@@ -305,11 +275,6 @@ public class MuxerTest extends Fixture {
 	public void testWaitForTimeoutNonRunningSuccessful()
 			throws Exception {
 		// Given
-		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
-		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
-		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
-		when(builder.directory(any())).thenReturn(builder);
-		Process process = mock(Process.class);
 		when(process.isAlive()).thenReturn(false);
 		when(process.exitValue()).thenReturn(SUCCESS);
 		when(process.waitFor(anyLong(), any())).thenReturn(true);
@@ -330,11 +295,6 @@ public class MuxerTest extends Fixture {
 	public void testWaitForTimeoutRunningSuccessful()
 			throws Exception {
 		// Given
-		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
-		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
-		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
-		when(builder.directory(any())).thenReturn(builder);
-		Process process = mock(Process.class);
 		when(process.isAlive()).thenReturn(true);
 		when(process.waitFor(anyLong(), any())).thenReturn(true);
 		when(builder.start()).thenReturn(process);
@@ -353,11 +313,6 @@ public class MuxerTest extends Fixture {
 	public void testWaitForTimeoutNonRunningFailed()
 			throws Exception {
 		// Given
-		ProcessBuilderFactory factory = mock(ProcessBuilderFactory.class);
-		ProcessBuilder builder = PowerMockito.mock(ProcessBuilder.class);
-		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
-		when(builder.directory(any())).thenReturn(builder);
-		Process process = mock(Process.class);
 		when(process.isAlive()).thenReturn(false);
 		when(process.exitValue()).thenReturn(-3425);
 		when(process.waitFor(anyLong(), any())).thenReturn(true);
