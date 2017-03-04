@@ -67,7 +67,7 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 		this.fileSystem = mirroredPath.getFileSystem();
 	}
 
-	private final Function<Try.CheckedSupplier<Integer, Exception>, Integer> tryCatch = (supplier) -> {
+	protected final Function<Try.CheckedSupplier<Integer, Exception>, Integer> tryCatch = (supplier) -> {
 		return Try.withCatch(supplier, Exception.class) //
 				.recoverFor(AccessDeniedException.class, e -> -ErrorCodes.EPERM()) //
 				.recoverFor(NoSuchFileException.class, e -> -ErrorCodes.ENOENT()) //
@@ -80,7 +80,7 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 				}).orElse(-ErrorCodes.EIO());
 	};
 
-	private final Function<Try.CheckedRunnable<IOException>, Integer> tryCatchRunnable = (runnable) -> {
+	protected final Function<Try.CheckedRunnable<IOException>, Integer> tryCatchRunnable = (runnable) -> {
 		return tryCatch.apply(() -> {
 			runnable.run();
 			return 0;

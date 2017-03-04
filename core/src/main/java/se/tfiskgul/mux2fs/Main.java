@@ -34,7 +34,7 @@ import com.google.common.collect.ImmutableList.Builder;
 import se.tfiskgul.mux2fs.CommandLineArguments.Strict;
 import se.tfiskgul.mux2fs.fs.jnrfuse.FileSystemSafetyWrapper;
 import se.tfiskgul.mux2fs.fs.jnrfuse.JnrFuseWrapperFileSystem;
-import se.tfiskgul.mux2fs.fs.mirror.MirrorFs;
+import se.tfiskgul.mux2fs.fs.mux.MuxFs;
 
 public class Main {
 
@@ -57,8 +57,8 @@ public class Main {
 	}
 
 	private static void mount(Strict arguments) {
-		MirrorFs mirrorFs = new MirrorFs(arguments.getSource());
-		FileSystemSafetyWrapper wrapped = new FileSystemSafetyWrapper(new JnrFuseWrapperFileSystem(mirrorFs));
+		MuxFs fs = new MuxFs(arguments.getSource());
+		FileSystemSafetyWrapper wrapped = new FileSystemSafetyWrapper(new JnrFuseWrapperFileSystem(fs));
 		try {
 			logger.debug("Fuse options {}", arguments.getPassThroughOptions());
 			wrapped.mount(arguments.getTarget(), true, false, getFuseOptions(arguments));
