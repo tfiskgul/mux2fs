@@ -136,6 +136,7 @@ public class MuxerTest extends Fixture {
 		// When
 		muxer.start();
 		// Then
+		verify(muxer.getOutputForTest().toFile()).deleteOnExit();
 		verify(factory).from("mkvmerge", "-o", muxer.getOutput().get().toString(), mkv.toString(), srt.toString());
 		// TODO: These are broken because of a bug in Mockito / Powermock
 		// verify(builder).directory(tempDir.toFile());
@@ -158,6 +159,7 @@ public class MuxerTest extends Fixture {
 		// Then
 		verify(factory).from("mkvmerge", "-o", muxer.getOutputForTest().toString(), mkv.toString(), srt.toString());
 		assertThat(muxer.state()).isEqualTo(State.FAILED);
+		verify(muxer.getOutputForTest().toFile()).deleteOnExit();
 		verify(muxer.getOutputForTest().toFile()).delete();
 		// TODO: These are broken because of a bug in Mockito / Powermock
 		// verify(builder).directory(tempDir.toFile());
