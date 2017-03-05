@@ -68,10 +68,7 @@ public class Muxer {
 	private volatile Process process;
 	private final ProcessBuilderFactory factory;
 
-	private Muxer(Path mkv, Path srt, Path tempDir, ProcessBuilderFactory factory) throws IOException {
-		access(mkv, AccessMode.READ);
-		access(srt, AccessMode.READ);
-		access(tempDir, AccessMode.WRITE);
+	private Muxer(Path mkv, Path srt, Path tempDir, ProcessBuilderFactory factory) {
 		this.mkv = mkv;
 		this.srt = srt;
 		this.tempDir = tempDir;
@@ -80,14 +77,12 @@ public class Muxer {
 		this.factory = factory;
 	}
 
-	public static Muxer of(Path mkv, Path srt, Path tempDir)
-			throws IOException {
+	public static Muxer of(Path mkv, Path srt, Path tempDir) {
 		return new Muxer(mkv, srt, tempDir, command -> new ProcessBuilder(command));
 	}
 
 	@VisibleForTesting
-	static Muxer of(Path mkv, Path srt, Path tempDir, ProcessBuilderFactory factory)
-			throws IOException {
+	static Muxer of(Path mkv, Path srt, Path tempDir, ProcessBuilderFactory factory) {
 		return new Muxer(mkv, srt, tempDir, factory);
 	}
 
@@ -101,6 +96,9 @@ public class Muxer {
 	public void start()
 			throws IOException {
 		if (state.compareAndSet(NOT_STARTED, RUNNING)) {
+			access(mkv, AccessMode.READ);
+			access(srt, AccessMode.READ);
+			access(tempDir, AccessMode.WRITE);
 			output.toFile().deleteOnExit();
 			try {
 				ProcessBuilder builder = factory.from("mkvmerge", "-o", output.toString(), mkv.toString(), srt.toString());

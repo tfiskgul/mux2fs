@@ -109,7 +109,7 @@ public class MuxerTest extends Fixture {
 			throws Exception {
 		doThrow(new NoSuchFileException(null)).when(provider).checkAccess(mkv, AccessMode.READ);
 		exception.expect(NoSuchFileException.class);
-		Muxer.of(mkv, srt, tempDir);
+		Muxer.of(mkv, srt, tempDir).start();
 	}
 
 	@Test
@@ -117,7 +117,7 @@ public class MuxerTest extends Fixture {
 			throws Exception {
 		doThrow(new NoSuchFileException(null)).when(provider).checkAccess(srt, AccessMode.READ);
 		exception.expect(NoSuchFileException.class);
-		Muxer.of(mkv, srt, tempDir);
+		Muxer.of(mkv, srt, tempDir).start();
 	}
 
 	@Test
@@ -125,7 +125,7 @@ public class MuxerTest extends Fixture {
 			throws Exception {
 		doThrow(new NoSuchFileException(null)).when(provider).checkAccess(tempDir, AccessMode.WRITE);
 		exception.expect(NoSuchFileException.class);
-		Muxer.of(mkv, srt, tempDir);
+		Muxer.of(mkv, srt, tempDir).start();
 	}
 
 	@Test
