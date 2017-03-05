@@ -23,20 +23,27 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs.fs.mux;
 
+import static java.util.stream.Collectors.toList;
+
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import cyclops.control.Try;
 import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
+import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
+import se.tfiskgul.mux2fs.fs.base.FileInfo;
 import se.tfiskgul.mux2fs.fs.base.StatFiller;
 import se.tfiskgul.mux2fs.fs.mirror.MirrorFs;
 
@@ -130,6 +137,37 @@ public class MuxFs extends MirrorFs {
 		}
 		Path muxFile = real(path);
 		return tryCatchRunnable.apply(() -> stat.statWithExtraSize(muxFile, getExtraSizeOf(muxFile)));
+	}
+
+	@SuppressWarnings("unused")
+	@Override
+	public int open(String path, FileHandleFiller filler) {
+		if (!path.endsWith(".mkv")) {
+			return super.open(path, filler);
+		}
+		logger.info(path);
+		Path muxFile = real(path);
+		List<Path> subFiles = getMatchingSubtitles(muxFile);
+		if (subFiles.isEmpty()) { // It doesn't need to be muxed, open normally
+			logger.debug("{} doesn't need muxing", path);
+			return super.open(path, filler);
+		}
+		return Try.withCatch(() -> getFileInfo(muxFile), Exception.class).map(fileInfo -> {
+			if (true) {
+				throw new UnsupportedOperationException();
+			}
+			return 0;
+		}).recover(this::translateOrThrow).get();
+	}
+
+	private FileInfo getFileInfo(Path mkvFile)
+			throws IOException {
+		Map<String, Object> map = Files.readAttributes(mkvFile, "unix:*"); // Follow links in this case
+		return new FileInfo((long) map.get("ino"), (FileTime) map.get("lastModifiedTime"), (FileTime) map.get("ctime"), (long) map.get("size"));
+	}
+
+	private List<Path> getMatchingSubtitles(Path muxFile) {
+		return matchingSubFiles(muxFile).collect(toList());
 	}
 
 	private long getExtraSizeOf(Path muxFile) {

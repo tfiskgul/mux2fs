@@ -85,7 +85,7 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 				}).get();
 	}
 
-	protected final Function<Try.CheckedRunnable<IOException>, Integer> tryCatchRunnable = (runnable) -> {
+	protected final Function<Try.CheckedRunnable<Exception>, Integer> tryCatchRunnable = (runnable) -> {
 		return tryCatch.apply(() -> {
 			runnable.run();
 			return 0;

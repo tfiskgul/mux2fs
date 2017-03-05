@@ -29,13 +29,17 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
+import java.nio.channels.FileChannel;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 import org.junit.Before;
 import org.junit.Test;
 
 import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
+import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
 import se.tfiskgul.mux2fs.fs.base.StatFiller;
 import se.tfiskgul.mux2fs.fs.mirror.MirrorFsTest;
 
@@ -204,5 +208,24 @@ public class MuxFsTest extends MirrorFsTest {
 		assertThat(result).isEqualTo(SUCCESS);
 		verify(stat).statWithExtraSize(mkv1, 2893756L + 2345L + 78568L);
 		verifyNoMoreInteractions(stat);
+	}
+
+	@Test
+	public void testOpenMkvNoMatchingSubsShouldOpenNormally()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		Path mkv1 = mockPath("file1.mkv");
+		Path mkv2 = mockPath("file2.mkv");
+		Path mkv2txt1 = mockPath("file2.txt", 123456789L);
+		Path mkv2srt1 = mockPath("file2.eng.srt", 2893756L);
+		Path mkv2srt2 = mockPath("file2.der.srt", 2345L);
+		Path mkv2srt3 = mockPath("file2.swe.srt", 78568L);
+		mockShuffledDirectoryStream(mirrorRoot, mkv1, mkv2, mkv2txt1, mkv2srt1, mkv2srt2, mkv2srt3);
+		when(fileSystem.provider().newFileChannel(eq(mkv1), eq(set(StandardOpenOption.READ)))).thenReturn(mock(FileChannel.class));
+		// When
+		int result = fs.open("file1.mkv", filler);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
 	}
 }
