@@ -57,7 +57,7 @@ public class Main {
 	}
 
 	private static void mount(Strict arguments) {
-		MuxFs fs = new MuxFs(arguments.getSource());
+		MuxFs fs = new MuxFs(arguments.getSource(), arguments.getTempDir());
 		FileSystemSafetyWrapper wrapped = new FileSystemSafetyWrapper(new JnrFuseWrapperFileSystem(fs));
 		try {
 			logger.debug("Fuse options {}", arguments.getPassThroughOptions());

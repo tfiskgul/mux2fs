@@ -34,11 +34,16 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.VisibleForTesting;
 
 import cyclops.control.Try;
 import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
@@ -46,13 +51,27 @@ import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
 import se.tfiskgul.mux2fs.fs.base.FileInfo;
 import se.tfiskgul.mux2fs.fs.base.StatFiller;
 import se.tfiskgul.mux2fs.fs.mirror.MirrorFs;
+import se.tfiskgul.mux2fs.mux.Muxer;
+import se.tfiskgul.mux2fs.mux.Muxer.MuxerFactory;
 
 public class MuxFs extends MirrorFs {
 
 	private static final Logger logger = LoggerFactory.getLogger(MuxFs.class);
+	private final Path tempDir;
+	private final ConcurrentMap<FileInfo, Muxer> muxFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
+	private final MuxerFactory muxerFactory;
 
-	public MuxFs(Path mirroredPath) {
+	public MuxFs(Path mirroredPath, Path tempDir) {
 		super(mirroredPath);
+		this.tempDir = tempDir;
+		this.muxerFactory = MuxerFactory.defaultFactory();
+	}
+
+	@VisibleForTesting
+	MuxFs(Path mirroredPath, Path tempDir, MuxerFactory muxerFactory) {
+		super(mirroredPath);
+		this.tempDir = tempDir;
+		this.muxerFactory = muxerFactory;
 	}
 
 	@Override
@@ -139,8 +158,8 @@ public class MuxFs extends MirrorFs {
 		return tryCatchRunnable.apply(() -> stat.statWithExtraSize(muxFile, getExtraSizeOf(muxFile)));
 	}
 
-	@SuppressWarnings("unused")
 	@Override
+	// TODO: Multiple SRT file support
 	public int open(String path, FileHandleFiller filler) {
 		if (!path.endsWith(".mkv")) {
 			return super.open(path, filler);
@@ -152,9 +171,22 @@ public class MuxFs extends MirrorFs {
 			logger.debug("{} doesn't need muxing", path);
 			return super.open(path, filler);
 		}
-		return Try.withCatch(() -> getFileInfo(muxFile), Exception.class).map(fileInfo -> {
-			if (true) {
-				throw new UnsupportedOperationException();
+		return Try.withCatch(() -> getFileInfo(muxFile), Exception.class).map(info -> {
+			// TODO: closedMuxFiles.invalidate(info);
+			Muxer muxer = muxerFactory.from(muxFile, subFiles.get(0), tempDir);
+			Muxer previous = muxFiles.putIfAbsent(info, muxer); // Others might be racing the same file
+			if (previous != null) { // They won the race
+				muxer = previous;
+			}
+			try {
+				muxer.start();
+				muxer.waitFor(50, TimeUnit.MILLISECONDS); // Short wait to catch errors earlier than read()
+			} catch (IOException | InterruptedException e) {
+				// Something dun goofed. Second best thing is to open the original file then.
+				logger.warn("Muxing failed, falling back to unmuxed file {}", muxFile, e);
+				// Invalidate the broken muxer. This means the next open will try again, which might not be a good strategy.
+				muxFiles.remove(info, muxer);
+				return super.open(path, filler);
 			}
 			return 0;
 		}).recover(this::translateOrThrow).get();

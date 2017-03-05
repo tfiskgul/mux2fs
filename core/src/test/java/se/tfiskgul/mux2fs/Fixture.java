@@ -38,11 +38,16 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.NotDirectoryException;
 import java.nio.file.NotLinkException;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.nio.file.spi.FileSystemProvider;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -166,5 +171,21 @@ public abstract class Fixture {
 		public abstract Exception exception();
 
 		public abstract int value();
+	}
+
+	protected Map<String, Object> mockAttributes(int nonce, Instant base) {
+		Map<String, Object> attributes = new HashMap<>();
+		attributes.put("dev", nonce * 3L);
+		attributes.put("ino", nonce * 5L);
+		attributes.put("nlink", nonce * 7);
+		attributes.put("mode", nonce * 11);
+		attributes.put("uid", nonce * 13);
+		attributes.put("gid", nonce * 17);
+		attributes.put("rdev", nonce * 19L);
+		attributes.put("size", nonce * 23L);
+		attributes.put("lastAccessTime", FileTime.from(base.minus(29, ChronoUnit.DAYS)));
+		attributes.put("lastModifiedTime", FileTime.from(base.minus(31, ChronoUnit.DAYS)));
+		attributes.put("ctime", FileTime.from(base.minus(37, ChronoUnit.DAYS)));
+		return attributes;
 	}
 }

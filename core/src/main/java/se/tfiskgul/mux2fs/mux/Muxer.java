@@ -56,8 +56,17 @@ public class Muxer {
 	}
 
 	@FunctionalInterface
-	public interface ProcessBuilderFactory {
+	public static interface ProcessBuilderFactory {
 		ProcessBuilder from(String... command);
+	}
+
+	@FunctionalInterface
+	public static interface MuxerFactory {
+		Muxer from(Path mkv, Path srt, Path tempDir);
+
+		static MuxerFactory defaultFactory() {
+			return (mkv, srt, tempDir) -> Muxer.of(mkv, srt, tempDir);
+		}
 	}
 
 	private final Path mkv;

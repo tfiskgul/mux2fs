@@ -33,7 +33,6 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.Test;
@@ -69,21 +68,5 @@ public class UnixFileStatImplTest extends Fixture {
 		assertThat(stat.getAccessTime()).isEqualTo(FileTime.from(base.minus(29, ChronoUnit.DAYS)).toInstant());
 		assertThat(stat.getModificationTime()).isEqualTo(FileTime.from(base.minus(31, ChronoUnit.DAYS)).toInstant());
 		assertThat(stat.getInodeTime()).isEqualTo(FileTime.from(base.minus(37, ChronoUnit.DAYS)).toInstant());
-	}
-
-	private Map<String, Object> mockAttributes(int nonce, Instant base) {
-		Map<String, Object> attributes = new HashMap<>();
-		attributes.put("dev", nonce * 3L);
-		attributes.put("ino", nonce * 5L);
-		attributes.put("nlink", nonce * 7);
-		attributes.put("mode", nonce * 11);
-		attributes.put("uid", nonce * 13);
-		attributes.put("gid", nonce * 17);
-		attributes.put("rdev", nonce * 19L);
-		attributes.put("size", nonce * 23L);
-		attributes.put("lastAccessTime", FileTime.from(base.minus(29, ChronoUnit.DAYS)));
-		attributes.put("lastModifiedTime", FileTime.from(base.minus(31, ChronoUnit.DAYS)));
-		attributes.put("ctime", FileTime.from(base.minus(37, ChronoUnit.DAYS)));
-		return attributes;
 	}
 }

@@ -5,6 +5,11 @@ import java.util.Objects;
 
 import javax.annotation.concurrent.Immutable;
 
+/**
+ * Represents a unique way of identifying an unnamed file (including contents)
+ *
+ * If the file is modified, the mtime changes. If the meta data changes, ctime changes.
+ */
 @Immutable
 public class FileInfo {
 
