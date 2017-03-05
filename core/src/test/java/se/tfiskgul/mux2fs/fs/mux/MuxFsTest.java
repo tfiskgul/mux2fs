@@ -24,25 +24,29 @@ SOFTWARE.
 package se.tfiskgul.mux2fs.fs.mux;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.fail;
 import static org.mockito.AdditionalMatchers.gt;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 
 import org.junit.Before;
 import org.junit.Test;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
 import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
 import se.tfiskgul.mux2fs.fs.base.StatFiller;
@@ -242,7 +246,27 @@ public class MuxFsTest extends MirrorFsTest {
 	}
 
 	@Test
-	public void testOpenMkvMatchingSubsShouldBeMuxed()
+	public void testAllErrorsForGetInfoInOpenMkvMatchingSub()
+			throws Exception {
+		testAllErrors(this::testOpenMkvGetFileInfo);
+	}
+
+	private void testOpenMkvGetFileInfo(ExpectedResult expected)
+			throws IOException {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		Path mkv = mockPath("file1.mkv");
+		Path srt = mockPath("file1.srt", 78568L);
+		mockShuffledDirectoryStream(mirrorRoot, mkv, srt);
+		when(fileSystem.provider().readAttributes(eq(mkv), eq("unix:*"))).thenThrow(expected.exception());
+		// When
+		int result = fs.open("file1.mkv", filler);
+		// Then
+		assertThat(result).isEqualTo(expected.value());
+	}
+
+	@Test
+	public void testIOExceptionInMuxerStartFallsBackToOriginal()
 			throws Exception {
 		// Given
 		FileHandleFiller filler = mock(FileHandleFiller.class);
@@ -250,13 +274,41 @@ public class MuxFsTest extends MirrorFsTest {
 		Path mkv2 = mockPath("file2.mkv");
 		Path mkv2txt1 = mockPath("file2.txt", 123456789L);
 		Path mkv2srt1 = mockPath("file2.eng.srt", 2893756L);
-		Path mkv2srt2 = mockPath("file2.der.srt", 2345L);
-		Path mkv2srt3 = mockPath("file2.swe.srt", 78568L);
-		mockDirectoryStream(mirrorRoot, mkv1, mkv2, mkv2txt1, mkv2srt1, mkv2srt2, mkv2srt3);
+		mockShuffledDirectoryStream(mirrorRoot, mkv1, mkv2, mkv2txt1, mkv2srt1);
 		Map<String, Object> attributes = mockAttributes(1, Instant.now());
 		when(fileSystem.provider().readAttributes(eq(mkv2), eq("unix:*"))).thenReturn(attributes);
 		Muxer muxer = mock(Muxer.class);
 		when(muxerFactory.from(mkv2, mkv2srt1, tempDir)).thenReturn(muxer);
+		doThrow(new IOException()).when(muxer).start();
+		when(fileSystem.provider().newFileChannel(eq(mkv2), eq(set(StandardOpenOption.READ)))).thenReturn(mock(FileChannel.class));
+		// When
+		int result = fs.open("file2.mkv", filler);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+		verify(muxerFactory).from(mkv2, mkv2srt1, tempDir);
+		verifyNoMoreInteractions(muxerFactory);
+		verify(muxer).start();
+		verifyNoMoreInteractions(muxer);
+		verify(filler).setFileHandle(gt(1));
+		verify(fileSystem.provider()).newFileChannel(eq(mkv2), eq(set(StandardOpenOption.READ)));
+	}
+
+	@Test
+	public void testOpenMkvMatchingSubNoMuxerOutputFallsBackToOriginal()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		Path mkv1 = mockPath("file1.mkv");
+		Path mkv2 = mockPath("file2.mkv");
+		Path mkv2txt1 = mockPath("file2.txt", 123456789L);
+		Path mkv2srt1 = mockPath("file2.eng.srt", 2893756L);
+		mockShuffledDirectoryStream(mirrorRoot, mkv1, mkv2, mkv2txt1, mkv2srt1);
+		Map<String, Object> attributes = mockAttributes(1, Instant.now());
+		when(fileSystem.provider().readAttributes(eq(mkv2), eq("unix:*"))).thenReturn(attributes);
+		Muxer muxer = mock(Muxer.class);
+		when(muxerFactory.from(mkv2, mkv2srt1, tempDir)).thenReturn(muxer);
+		when(fileSystem.provider().newFileChannel(eq(mkv2), eq(set(StandardOpenOption.READ)))).thenReturn(mock(FileChannel.class));
+		when(muxer.getOutput()).thenReturn(Optional.empty());
 		// When
 		int result = fs.open("file2.mkv", filler);
 		// Then
@@ -265,9 +317,111 @@ public class MuxFsTest extends MirrorFsTest {
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
 		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).getOutput();
 		verifyNoMoreInteractions(muxer);
 		verify(filler).setFileHandle(gt(1));
-		// FIXME
-		fail("FIXME");
+		verify(fileSystem.provider()).newFileChannel(eq(mkv2), eq(set(StandardOpenOption.READ)));
+	}
+
+	@Test
+	public void testOpenMkvMatchingSubShouldBeMuxed()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		Path mkv1 = mockPath("file1.mkv");
+		Path mkv2 = mockPath("file2.mkv");
+		Path mkv2txt1 = mockPath("file2.txt", 123456789L);
+		Path mkv2srt1 = mockPath("file2.eng.srt", 2893756L);
+		mockShuffledDirectoryStream(mirrorRoot, mkv1, mkv2, mkv2txt1, mkv2srt1);
+		Map<String, Object> attributes = mockAttributes(1, Instant.now());
+		when(fileSystem.provider().readAttributes(eq(mkv2), eq("unix:*"))).thenReturn(attributes);
+		Muxer muxer = mock(Muxer.class);
+		when(muxerFactory.from(mkv2, mkv2srt1, tempDir)).thenReturn(muxer);
+		Path muxedFile = mockPath(tempDir, "file1.mkv");
+		when(muxer.getOutput()).thenReturn(Optional.of(muxedFile));
+		when(fileSystem.provider().newFileChannel(eq(muxedFile), eq(set(StandardOpenOption.READ)))).thenReturn(mock(FileChannel.class));
+		// When
+		int result = fs.open("file2.mkv", filler);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+		verify(muxerFactory).from(mkv2, mkv2srt1, tempDir);
+		verifyNoMoreInteractions(muxerFactory);
+		verify(muxer).start();
+		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).getOutput();
+		verifyNoMoreInteractions(muxer);
+		verify(filler).setFileHandle(gt(1));
+		verify(fileSystem.provider()).newFileChannel(eq(muxedFile), eq(set(StandardOpenOption.READ)));
+	}
+
+	@Test
+	public void testOpenMkvMatchingSubTwiceShouldBeMuxedOnce()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		Path mkv1 = mockPath("file1.mkv");
+		Path mkv2 = mockPath("file2.mkv");
+		Path mkv2txt1 = mockPath("file2.txt", 123456789L);
+		Path mkv2srt1 = mockPath("file2.eng.srt", 2893756L);
+		mockShuffledDirectoryStream(mirrorRoot, mkv1, mkv2, mkv2txt1, mkv2srt1);
+		Map<String, Object> attributes = mockAttributes(1, Instant.now());
+		when(fileSystem.provider().readAttributes(eq(mkv2), eq("unix:*"))).thenReturn(attributes);
+		Muxer muxer = mock(Muxer.class);
+		when(muxerFactory.from(mkv2, mkv2srt1, tempDir)).thenReturn(muxer);
+		Path muxedFile = mockPath(tempDir, "file1.mkv");
+		when(muxer.getOutput()).thenReturn(Optional.of(muxedFile));
+		when(fileSystem.provider().newFileChannel(eq(muxedFile), eq(set(StandardOpenOption.READ)))).thenReturn(mock(FileChannel.class));
+		fs.open("file2.mkv", filler);
+		Muxer muxer2 = mock(Muxer.class);
+		when(muxerFactory.from(mkv2, mkv2srt1, tempDir)).thenReturn(muxer2);
+		mockShuffledDirectoryStream(mirrorRoot, mkv1, mkv2, mkv2txt1, mkv2srt1);
+		// When
+		int result = fs.open("file2.mkv", filler);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+		verify(muxerFactory, times(2)).from(mkv2, mkv2srt1, tempDir);
+		verifyNoMoreInteractions(muxerFactory);
+		verify(muxer, times(2)).start();
+		verify(muxer, times(2)).waitFor(anyLong(), any());
+		verify(muxer, times(2)).getOutput();
+		verifyNoMoreInteractions(muxer);
+		verifyNoMoreInteractions(muxer2);
+		verify(filler, times(2)).setFileHandle(gt(1));
+		verify(fileSystem.provider(), times(2)).newFileChannel(eq(muxedFile), eq(set(StandardOpenOption.READ)));
+	}
+
+	@Test
+	@SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
+	public void testOpenMkvMatchingSubOpenMuxedFileFailsFallsBackToOriginal()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		Path mkv1 = mockPath("file1.mkv");
+		Path mkv2 = mockPath("file2.mkv");
+		Path mkv2txt1 = mockPath("file2.txt", 123456789L);
+		Path mkv2srt1 = mockPath("file2.eng.srt", 2893756L);
+		mockShuffledDirectoryStream(mirrorRoot, mkv1, mkv2, mkv2txt1, mkv2srt1);
+		Map<String, Object> attributes = mockAttributes(1, Instant.now());
+		when(fileSystem.provider().readAttributes(eq(mkv2), eq("unix:*"))).thenReturn(attributes);
+		Muxer muxer = mock(Muxer.class);
+		when(muxerFactory.from(mkv2, mkv2srt1, tempDir)).thenReturn(muxer);
+		Path muxedFile = mockPath(tempDir, "file1.mkv");
+		when(muxer.getOutput()).thenReturn(Optional.of(muxedFile));
+		when(fileSystem.provider().newFileChannel(eq(muxedFile), eq(set(StandardOpenOption.READ)))).thenThrow(new IOException());
+		when(fileSystem.provider().newFileChannel(eq(mkv2), eq(set(StandardOpenOption.READ)))).thenReturn(mock(FileChannel.class));
+		// When
+		int result = fs.open("file2.mkv", filler);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+		verify(muxerFactory).from(mkv2, mkv2srt1, tempDir);
+		verifyNoMoreInteractions(muxerFactory);
+		verify(muxer).start();
+		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).getOutput();
+		verifyNoMoreInteractions(muxer);
+		verify(muxedFile.toFile()).delete();
+		verify(filler).setFileHandle(gt(1));
+		verify(fileSystem.provider()).newFileChannel(eq(muxedFile), eq(set(StandardOpenOption.READ)));
+		verify(fileSystem.provider()).newFileChannel(eq(mkv2), eq(set(StandardOpenOption.READ)));
 	}
 }

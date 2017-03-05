@@ -141,7 +141,10 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 	@Override
 	public int open(String path, FileHandleFiller filler) {
 		logger.info(path);
-		Path real = real(path);
+		return openReal(real(path), filler);
+	}
+
+	protected int openReal(Path real, FileHandleFiller filler) {
 		return tryCatchRunnable.apply(() -> {
 			FileChannel channel = FileChannel.open(real, StandardOpenOption.READ);
 			int fileHandle = fileHandleCounter.getAndIncrement();

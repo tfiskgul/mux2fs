@@ -1,6 +1,10 @@
 package se.tfiskgul.mux2fs.fs.base;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
+import java.util.Map;
 import java.util.Objects;
 
 import javax.annotation.concurrent.Immutable;
@@ -24,6 +28,13 @@ public class FileInfo {
 		this.mtime = mtime;
 		this.ctime = ctime;
 		this.size = size;
+	}
+
+	public static FileInfo of(Path path)
+			throws IOException {
+		Map<String, Object> attributes = Files.readAttributes(path, "unix:*"); // Follow links in this case
+		return new FileInfo((long) attributes.get("ino"), (FileTime) attributes.get("lastModifiedTime"), (FileTime) attributes.get("ctime"),
+				(long) attributes.get("size"));
 	}
 
 	public long getInode() {

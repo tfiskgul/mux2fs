@@ -29,11 +29,10 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -171,7 +170,7 @@ public class MuxFs extends MirrorFs {
 			logger.debug("{} doesn't need muxing", path);
 			return super.open(path, filler);
 		}
-		return Try.withCatch(() -> getFileInfo(muxFile), Exception.class).map(info -> {
+		return Try.withCatch(() -> FileInfo.of(muxFile), Exception.class).map(info -> {
 			// TODO: closedMuxFiles.invalidate(info);
 			Muxer muxer = muxerFactory.from(muxFile, subFiles.get(0), tempDir);
 			Muxer previous = muxFiles.putIfAbsent(info, muxer); // Others might be racing the same file
@@ -188,14 +187,36 @@ public class MuxFs extends MirrorFs {
 				muxFiles.remove(info, muxer);
 				return super.open(path, filler);
 			}
-			return 0;
+			Optional<Path> output = muxer.getOutput();
+			if (!output.isPresent()) {
+				logger.warn("Muxing failed! muxer.getOutput().isPresent() == false, falling back to unmuxed file {}", muxFile);
+				// Invalidate the broken muxer. This means the next open will try again, which might not be a good strategy.
+				muxFiles.remove(info, muxer);
+				return super.open(path, filler); // Fall back to original if no result
+			}
+			Path muxedPath = output.get();
+			int result = super.openReal(muxedPath, filler);
+			if (result == 0) {
+				// TODO: openMuxFiles.put(fi.fh.get(), new MuxedFile(info, muxer));
+			} else {
+				logger.warn("Failed to open muxed file {}, falling back to unmuxed file {}", muxedPath, muxFile);
+				muxFiles.remove(info, muxer);
+				safeDelete(muxedPath);
+				result = super.openReal(muxFile, filler);
+			}
+			return result;
 		}).recover(this::translateOrThrow).get();
 	}
 
-	private FileInfo getFileInfo(Path mkvFile)
-			throws IOException {
-		Map<String, Object> map = Files.readAttributes(mkvFile, "unix:*"); // Follow links in this case
-		return new FileInfo((long) map.get("ino"), (FileTime) map.get("lastModifiedTime"), (FileTime) map.get("ctime"), (long) map.get("size"));
+	private boolean safeDelete(Path path) {
+		if (path != null) {
+			try {
+				return path.toFile().delete();
+			} catch (Exception e) {
+				logger.warn("Failed to delete {} ", path, e);
+			}
+		}
+		return false;
 	}
 
 	private List<Path> getMatchingSubtitles(Path muxFile) {
