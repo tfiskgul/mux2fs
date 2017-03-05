@@ -28,6 +28,7 @@ import static se.tfiskgul.mux2fs.Constants.BUG;
 import static se.tfiskgul.mux2fs.Constants.SUCCESS;
 
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -230,9 +231,30 @@ public class MuxFs extends MirrorFs {
 				return super.read(path, buf, size, offset, fileHandle);
 			case FAILED:
 				return muxingFailed(fileHandle, muxedFile, muxer);
+			case RUNNING:
+				return readRunningMuxer(path, buf, size, offset, fileHandle, muxedFile);
 			default:
 				logger.error("BUG: Unhandled state {} in muxer {}", state, muxer);
 				return BUG;
+		}
+	}
+
+	private int readRunningMuxer(String path, Consumer<byte[]> buf, int size, long offset, int fileHandle, MuxedFile muxedFile) {
+		long maxPosition = offset + size; // This could overflow for really big files, close to 8388608 TB.
+		FileChannel channelFor = getChannelFor(fileHandle);
+		if (channelFor == null) {
+			logger.error("BUG: FileChannel for file handle {} open {} not found", fileHandle, muxedFile);
+			return BUG;
+		}
+		try {
+			long muxSize = channelFor.size();
+			if (maxPosition >= muxSize) { // Read beyond current mux progress
+				return -ErrorCodes.ENOSYS();
+			}
+			return super.read(path, buf, size, offset, fileHandle);
+		} catch (IOException e) {
+			logger.warn("IOException for {}", muxedFile, e);
+			return -ErrorCodes.EIO();
 		}
 	}
 

@@ -245,4 +245,8 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 	protected Path real(String... virtual) {
 		return fileSystem.getPath(mirroredRoot, virtual);
 	}
+
+	protected FileChannel getChannelFor(int fileHandle) {
+		return openFiles.get(fileHandle);
+	}
 }
