@@ -46,7 +46,7 @@ import ru.serce.jnrfuse.struct.FuseFileInfo;
 public final class FileSystemSafetyWrapper extends FuseStubFS {
 
 	private static final Logger logger = LoggerFactory.getLogger(FileSystemSafetyWrapper.class);
-	private static final int BUG_ERR = -ErrorCodes.EIO();
+	private static final int BUG_ERR = -ErrorCodes.ENOSYS();
 	private final NamedJnrFuseFileSystem delegate;
 
 	public FileSystemSafetyWrapper(NamedJnrFuseFileSystem delegate) {
