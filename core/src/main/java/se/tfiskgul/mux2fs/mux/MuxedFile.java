@@ -21,34 +21,56 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
-package se.tfiskgul.mux2fs.fs.base;
+package se.tfiskgul.mux2fs.mux;
 
-@FunctionalInterface
-public interface FileHandleFiller {
+import java.util.Objects;
 
-	void setFileHandle(int fileHandle);
+import javax.annotation.concurrent.Immutable;
 
-	public static class Recorder implements FileHandleFiller {
+import se.tfiskgul.mux2fs.fs.base.FileInfo;
 
-		public static Recorder wrap(FileHandleFiller filler) {
-			return new Recorder(filler);
+@Immutable
+public class MuxedFile {
+
+	private final FileInfo info;
+	private final Muxer muxer;
+
+	public MuxedFile(FileInfo info, Muxer muxer) {
+		super();
+		this.info = info;
+		this.muxer = muxer;
+	}
+
+	public FileInfo getInfo() {
+		return info;
+	}
+
+	public Muxer getMuxer() {
+		return muxer;
+	}
+
+	@Override
+	public String toString() {
+		return "MuxedFile [info=" + info + ", muxer=" + muxer + "]";
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(info, muxer);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
 		}
-
-		private Recorder(FileHandleFiller filler) {
-			this.delegate = filler;
+		if (obj == null) {
+			return false;
 		}
-
-		private final FileHandleFiller delegate;
-		private int fileHandle = -1;
-
-		public int getFileHandle() {
-			return fileHandle;
+		if (getClass() != obj.getClass()) {
+			return false;
 		}
-
-		@Override
-		public void setFileHandle(int fileHandle) {
-			this.fileHandle = fileHandle;
-			delegate.setFileHandle(fileHandle);
-		}
+		MuxedFile other = (MuxedFile) obj;
+		return Objects.equals(info, other.info) && Objects.equals(muxer, other.muxer);
 	}
 }

@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -45,13 +46,17 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 
 import cyclops.control.Try;
+import ru.serce.jnrfuse.ErrorCodes;
 import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
 import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
+import se.tfiskgul.mux2fs.fs.base.FileHandleFiller.Recorder;
 import se.tfiskgul.mux2fs.fs.base.FileInfo;
 import se.tfiskgul.mux2fs.fs.base.StatFiller;
 import se.tfiskgul.mux2fs.fs.mirror.MirrorFs;
+import se.tfiskgul.mux2fs.mux.MuxedFile;
 import se.tfiskgul.mux2fs.mux.Muxer;
 import se.tfiskgul.mux2fs.mux.Muxer.MuxerFactory;
+import se.tfiskgul.mux2fs.mux.Muxer.State;
 
 public class MuxFs extends MirrorFs {
 
@@ -59,6 +64,7 @@ public class MuxFs extends MirrorFs {
 	private final Path tempDir;
 	private final ConcurrentMap<FileInfo, Muxer> muxFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
 	private final MuxerFactory muxerFactory;
+	private final ConcurrentMap<Integer, MuxedFile> openMuxFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
 
 	public MuxFs(Path mirroredPath, Path tempDir) {
 		super(mirroredPath);
@@ -195,9 +201,10 @@ public class MuxFs extends MirrorFs {
 				return super.open(path, filler); // Fall back to original if no result
 			}
 			Path muxedPath = output.get();
-			int result = super.openReal(muxedPath, filler);
+			Recorder recorder = FileHandleFiller.Recorder.wrap(filler);
+			int result = super.openReal(muxedPath, recorder);
 			if (result == 0) {
-				// TODO: openMuxFiles.put(fi.fh.get(), new MuxedFile(info, muxer));
+				openMuxFiles.put(recorder.getFileHandle(), new MuxedFile(info, muxer));
 			} else {
 				logger.warn("Failed to open muxed file {}, falling back to unmuxed file {}", muxedPath, muxFile);
 				muxFiles.remove(info, muxer);
@@ -206,6 +213,23 @@ public class MuxFs extends MirrorFs {
 			}
 			return result;
 		}).recover(this::translateOrThrow).get();
+	}
+
+	@Override
+	public int read(String path, Consumer<byte[]> buf, int size, long offset, int fileHandle) {
+		MuxedFile muxedFile = openMuxFiles.get(fileHandle);
+		if (muxedFile == null) { // Not a muxed file
+			return super.read(path, buf, size, offset, fileHandle);
+		}
+		Muxer muxer = muxedFile.getMuxer();
+		State state = muxer.state();
+		switch (state) {
+			case SUCCESSFUL:
+				return super.read(path, buf, size, offset, fileHandle);
+			default:
+				logger.error("BUG: Unhandled state {} in muxer {}", state, muxer);
+				return -ErrorCodes.ENOSYS();
+		}
 	}
 
 	private boolean safeDelete(Path path) {
