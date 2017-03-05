@@ -1,6 +1,13 @@
+buildscript {
+	repositories {
+		maven { url "https://plugins.gradle.org/m2/" }
+	}
+	dependencies { classpath "net.ltgt.gradle:gradle-apt-plugin:0.9" }
+}
 apply plugin: 'java'
 apply plugin: 'findbugs'
 apply plugin: 'pmd'
+apply plugin: "net.ltgt.apt"
 
 dependencies {
 	compile group: 'com.github.serceman', name: 'jnr-fuse', version: '+'
@@ -20,6 +27,8 @@ dependencies {
 	testCompile group: 'org.powermock', name: 'powermock-api-mockito', version: '1.7.+'
 	testCompile group: 'org.powermock', name: 'powermock-core', version: '1.7.+'
 	testCompile group: 'org.powermock', name: 'powermock-module-junit4', version: '1.7.+'
+	testCompile group: 'com.google.auto.value', name: 'auto-value', version: '1.+'
+	apt group: 'com.google.auto.value', name: 'auto-value', version: '1.+'
 }
 
 sourceSets { shell }

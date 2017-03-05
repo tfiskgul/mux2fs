@@ -31,8 +31,12 @@ import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.NotDirectoryException;
+import java.nio.file.NotLinkException;
 import java.nio.file.Path;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.ArrayList;
@@ -43,8 +47,12 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+
+import cyclops.control.Try;
+import ru.serce.jnrfuse.ErrorCodes;
 
 public abstract class Fixture {
 
@@ -131,5 +139,32 @@ public abstract class Fixture {
 	protected <T> Consumer<T> empty() {
 		return (t) -> {
 		};
+	}
+
+	protected void testAllErrors(Try.CheckedConsumer<ExpectedResult, Exception> sut)
+			throws Exception {
+		List<ExpectedResult> list = list( //
+				exp(new NoSuchFileException(null), -ErrorCodes.ENOENT()), //
+				exp(new AccessDeniedException(null), -ErrorCodes.EPERM()), //
+				exp(new NotDirectoryException(null), -ErrorCodes.ENOTDIR()), //
+				exp(new NotLinkException(null), -ErrorCodes.EINVAL()), //
+				exp(new UnsupportedOperationException(), -ErrorCodes.ENOSYS()), //
+				exp(new IOException(), -ErrorCodes.EIO())); //
+		list.forEach(expected -> Try.runWithCatch(() -> sut.accept(expected), Exception.class).get());
+	}
+
+	private static ExpectedResult exp(Exception exception, int value) {
+		return ExpectedResult.create(exception, value);
+	}
+
+	@AutoValue
+	public abstract static class ExpectedResult {
+		static ExpectedResult create(Exception exception, int value) {
+			return new AutoValue_Fixture_ExpectedResult(exception, value);
+		}
+
+		public abstract Exception exception();
+
+		public abstract int value();
 	}
 }

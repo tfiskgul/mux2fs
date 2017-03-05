@@ -40,8 +40,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.NoSuchFileException;
-import java.nio.file.NotDirectoryException;
-import java.nio.file.NotLinkException;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
@@ -82,42 +80,21 @@ public class MirrorFsTest extends MirrorFsFixture {
 	}
 
 	@Test
-	public void testGetAttrNoSuchFile()
+	public void testAllErrorsForGetAttr()
 			throws Exception {
-		// Given
-		StatFiller stat = mock(StatFiller.class);
-		Path foo = mockPath("/foo");
-		when(stat.stat(foo)).thenThrow(new NoSuchFileException(null));
-		// When
-		int result = fs.getattr("/foo", stat);
-		// Then
-		assertThat(result).isEqualTo(-ErrorCodes.ENOENT());
+		testAllErrors(this::getAttr);
 	}
 
-	@Test
-	public void testGetAttrNoPerm()
+	private void getAttr(ExpectedResult expected)
 			throws Exception {
 		// Given
 		StatFiller stat = mock(StatFiller.class);
 		Path foo = mockPath("/foo");
-		when(stat.stat(foo)).thenThrow(new AccessDeniedException(null));
+		when(stat.stat(foo)).thenThrow(expected.exception());
 		// When
 		int result = fs.getattr("/foo", stat);
 		// Then
-		assertThat(result).isEqualTo(-ErrorCodes.EPERM());
-	}
-
-	@Test
-	public void testGetAttrIOException()
-			throws Exception {
-		// Given
-		StatFiller stat = mock(StatFiller.class);
-		Path foo = mockPath("/foo");
-		when(stat.stat(foo)).thenThrow(new IOException());
-		// When
-		int result = fs.getattr("/foo", stat);
-		// Then
-		assertThat(result).isEqualTo(-ErrorCodes.EIO());
+		assertThat(result).isEqualTo(expected.value());
 	}
 
 	@Test
@@ -141,27 +118,9 @@ public class MirrorFsTest extends MirrorFsFixture {
 	}
 
 	@Test
-	public void testReadDirOnFile()
+	public void testAllErrorsForReadDir()
 			throws Exception {
-		negativeReadDir(-ErrorCodes.ENOTDIR(), new NotDirectoryException(null));
-	}
-
-	@Test
-	public void testReadDirNoPerm()
-			throws Exception {
-		negativeReadDir(-ErrorCodes.EPERM(), new AccessDeniedException(null));
-	}
-
-	@Test
-	public void testReadDirNoDirOrFile()
-			throws Exception {
-		negativeReadDir(-ErrorCodes.ENOENT(), new NoSuchFileException(null));
-	}
-
-	@Test
-	public void testReadDirIoErr()
-			throws Exception {
-		negativeReadDir(-ErrorCodes.EIO(), new IOException());
+		testAllErrors(this::readDir);
 	}
 
 	@Test
@@ -251,15 +210,15 @@ public class MirrorFsTest extends MirrorFsFixture {
 		verifyNoMoreInteractions(filler);
 	}
 
-	private void negativeReadDir(int expected, IOException exception)
+	private void readDir(ExpectedResult expected)
 			throws IOException {
 		// Given
-		when(fileSystem.provider().newDirectoryStream(eq(mirrorRoot), any())).thenThrow(exception);
+		when(fileSystem.provider().newDirectoryStream(eq(mirrorRoot), any())).thenThrow(expected.exception());
 		DirectoryFiller filler = mock(DirectoryFiller.class);
 		// When
 		int result = fs.readdir("/", filler);
 		// Then
-		assertThat(result).isEqualTo(expected);
+		assertThat(result).isEqualTo(expected.value());
 	}
 
 	@Test
@@ -407,7 +366,12 @@ public class MirrorFsTest extends MirrorFsFixture {
 	}
 
 	@Test
-	public void testReadInputOutputException()
+	public void testAllErrorsForRead()
+			throws Exception {
+		testAllErrors(this::read);
+	}
+
+	private void read(ExpectedResult expectedResult)
 			throws Exception {
 		// Given
 		FileHandleFiller filler = mock(FileHandleFiller.class);
@@ -419,11 +383,11 @@ public class MirrorFsTest extends MirrorFsFixture {
 		fs.open("foo.bar", filler);
 		Integer fileHandle = handleCaptor.getValue();
 		ArgumentCaptor<ByteBuffer> bufferCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
-		when(fileChannel.read(bufferCaptor.capture(), eq(1234L))).thenThrow(new IOException());
+		when(fileChannel.read(bufferCaptor.capture(), eq(1234L))).thenThrow(expectedResult.exception());
 		// When
 		int result = fs.read("foo.bar", (data) -> fail("No data should be read"), 10, 1234L, fileHandle);
 		// Then
-		assertThat(result).isEqualTo(-ErrorCodes.EIO());
+		assertThat(result).isEqualTo(expectedResult.value());
 		verify(fileChannel).read(any(), eq(1234L));
 		verifyNoMoreInteractions(fileChannel);
 		assertThat(bufferCaptor.getValue().limit()).isEqualTo(10);
@@ -448,38 +412,20 @@ public class MirrorFsTest extends MirrorFsFixture {
 	}
 
 	@Test
-	public void testReadLinkNotLink()
+	public void testAllErrorsForReadLink()
 			throws Exception {
-		readLinkThrow(-ErrorCodes.EINVAL(), new NotLinkException(null));
+		testAllErrors(this::readLink);
 	}
 
-	@Test
-	public void testReadLinkUnsupportedOperation()
-			throws Exception {
-		readLinkThrow(-ErrorCodes.ENOSYS(), new UnsupportedOperationException());
-	}
-
-	@Test
-	public void testReadLinkInputOutputError()
-			throws Exception {
-		readLinkThrow(-ErrorCodes.EIO(), new IOException());
-	}
-
-	@Test
-	public void testReadLinkNoSuchFile()
-			throws Exception {
-		readLinkThrow(-ErrorCodes.ENOENT(), new NoSuchFileException(null));
-	}
-
-	private void readLinkThrow(int expected, Exception exception)
+	private void readLink(ExpectedResult expectedResult)
 			throws Exception {
 		// Given
 		Path fooBar = mockPath("foo.bar");
-		when(fileSystem.provider().readSymbolicLink(fooBar)).thenThrow(exception);
+		when(fileSystem.provider().readSymbolicLink(fooBar)).thenThrow(expectedResult.exception());
 		// When
 		int result = fs.readLink("foo.bar", (name) -> fail(), 1024);
 		// Then
-		assertThat(result).isEqualTo(expected);
+		assertThat(result).isEqualTo(expectedResult.value());
 	}
 
 	@Test

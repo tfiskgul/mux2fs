@@ -5,3 +5,5 @@ build/
 .settings
 classes/
 bin/
+.apt_generated/
+.factorypath

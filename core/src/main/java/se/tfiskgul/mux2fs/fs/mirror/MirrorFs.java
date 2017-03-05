@@ -164,7 +164,7 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 		ByteBuffer byteBuffer = threadBuffer.get();
 		byteBuffer.clear();
 		byteBuffer.limit(size);
-		try {
+		return tryCatch.apply(() -> {
 			int bytesRead = fileChannel.read(byteBuffer, offset); // Read into native memory
 			if (bytesRead <= 0) { // EOF
 				return 0;
@@ -174,10 +174,7 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 			byteBuffer.get(intermediate);
 			buf.accept(intermediate); // And then back =(
 			return bytesRead;
-		} catch (Exception e) {
-			logger.warn("", e);
-			return -ErrorCodes.EIO();
-		}
+		});
 	}
 
 	@Override
