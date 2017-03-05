@@ -23,6 +23,8 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs.fs.jnrfuse;
 
+import static se.tfiskgul.mux2fs.Constants.BUG;
+
 import java.nio.file.Path;
 import java.util.function.Supplier;
 
@@ -32,7 +34,6 @@ import org.slf4j.LoggerFactory;
 import jnr.ffi.Pointer;
 import jnr.ffi.types.off_t;
 import jnr.ffi.types.size_t;
-import ru.serce.jnrfuse.ErrorCodes;
 import ru.serce.jnrfuse.FuseFillDir;
 import ru.serce.jnrfuse.FuseStubFS;
 import ru.serce.jnrfuse.struct.FileStat;
@@ -46,7 +47,6 @@ import ru.serce.jnrfuse.struct.FuseFileInfo;
 public final class FileSystemSafetyWrapper extends FuseStubFS {
 
 	private static final Logger logger = LoggerFactory.getLogger(FileSystemSafetyWrapper.class);
-	private static final int BUG_ERR = -ErrorCodes.ENOSYS();
 	private final NamedJnrFuseFileSystem delegate;
 
 	public FileSystemSafetyWrapper(NamedJnrFuseFileSystem delegate) {
@@ -108,7 +108,7 @@ public final class FileSystemSafetyWrapper extends FuseStubFS {
 			return supplier.get();
 		} catch (Throwable e) {
 			logger.error("BUG: Uncaught exception!", e);
-			return BUG_ERR;
+			return BUG;
 		}
 	}
 

@@ -24,6 +24,8 @@ SOFTWARE.
 package se.tfiskgul.mux2fs.fs.mux;
 
 import static java.util.stream.Collectors.toList;
+import static se.tfiskgul.mux2fs.Constants.BUG;
+import static se.tfiskgul.mux2fs.Constants.SUCCESS;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -112,7 +114,7 @@ public class MuxFs extends MirrorFs {
 						continue;
 					}
 					if (!add(filler, entry)) {
-						return 0;
+						return SUCCESS;
 					}
 				}
 			}
@@ -136,7 +138,7 @@ public class MuxFs extends MirrorFs {
 						}
 					}
 					if (!addWithExtraSize(filler, muxFile, extraSize)) {
-						return 0;
+						return SUCCESS;
 					}
 				}
 			}
@@ -145,11 +147,11 @@ public class MuxFs extends MirrorFs {
 			if (subFiles != null) {
 				for (Path subFile : subFiles) {
 					if (!add(filler, subFile)) {
-						return 0;
+						return SUCCESS;
 					}
 				}
 			}
-			return 0;
+			return SUCCESS;
 		});
 	}
 
@@ -203,7 +205,7 @@ public class MuxFs extends MirrorFs {
 			Path muxedPath = output.get();
 			Recorder recorder = FileHandleFiller.Recorder.wrap(filler);
 			int result = super.openReal(muxedPath, recorder);
-			if (result == 0) {
+			if (result == SUCCESS) {
 				openMuxFiles.put(recorder.getFileHandle(), new MuxedFile(info, muxer));
 			} else {
 				logger.warn("Failed to open muxed file {}, falling back to unmuxed file {}", muxedPath, muxFile);
@@ -230,7 +232,7 @@ public class MuxFs extends MirrorFs {
 				return muxingFailed(fileHandle, muxedFile, muxer);
 			default:
 				logger.error("BUG: Unhandled state {} in muxer {}", state, muxer);
-				return -ErrorCodes.ENOSYS();
+				return BUG;
 		}
 	}
 

@@ -34,6 +34,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static se.tfiskgul.mux2fs.Constants.SUCCESS;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

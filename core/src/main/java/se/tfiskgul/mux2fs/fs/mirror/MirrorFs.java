@@ -23,6 +23,10 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs.fs.mirror;
 
+import static se.tfiskgul.mux2fs.Constants.FILE_HANDLE_START_NO;
+import static se.tfiskgul.mux2fs.Constants.SUCCESS;
+import static se.tfiskgul.mux2fs.Constants.THREAD_BUF_SIZE;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -55,11 +59,10 @@ import se.tfiskgul.mux2fs.fs.base.StatFiller;
 public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 
 	private static final Logger logger = LoggerFactory.getLogger(MirrorFs.class);
-	private static final int THREAD_BUF_SIZE = 128 * 1024;
 	private final ThreadLocal<ByteBuffer> threadBuffer = ThreadLocal.withInitial(() -> ByteBuffer.allocateDirect(THREAD_BUF_SIZE));
 	private final String mirroredRoot;
 	private final FileSystem fileSystem;
-	private final AtomicInteger fileHandleCounter = new AtomicInteger(32);
+	private final AtomicInteger fileHandleCounter = new AtomicInteger(FILE_HANDLE_START_NO);
 	private final ConcurrentMap<Integer, FileChannel> openFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
 
 	public MirrorFs(Path mirroredPath) {
@@ -88,7 +91,7 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 	protected final Function<Try.CheckedRunnable<Exception>, Integer> tryCatchRunnable = (runnable) -> {
 		return tryCatch.apply(() -> {
 			runnable.run();
-			return 0;
+			return SUCCESS;
 		});
 	};
 
@@ -110,11 +113,11 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 			try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(realPath)) {
 				for (Path entry : directoryStream) {
 					if (!add(filler, entry)) {
-						return 0;
+						return SUCCESS;
 					}
 				}
 			}
-			return 0;
+			return SUCCESS;
 		});
 	}
 
@@ -126,7 +129,7 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 			Path target = Files.readSymbolicLink(real);
 			return getFileName(target).map(name -> {
 				buf.accept(truncateIfNeeded(name, size));
-				return 0;
+				return SUCCESS;
 			}).orElse(-ErrorCodes.EINVAL());
 		});
 	}
@@ -170,7 +173,7 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 		return tryCatch.apply(() -> {
 			int bytesRead = fileChannel.read(byteBuffer, offset); // Read into native memory
 			if (bytesRead <= 0) { // EOF
-				return 0;
+				return SUCCESS;
 			}
 			byte[] intermediate = new byte[bytesRead]; // This copies native memory into JVM
 			byteBuffer.rewind();
@@ -188,7 +191,7 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 			return -ErrorCodes.EBADF();
 		}
 		safeClose(fileChannel);
-		return 0;
+		return SUCCESS;
 	}
 
 	@Override
