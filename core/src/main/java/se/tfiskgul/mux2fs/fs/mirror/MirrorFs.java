@@ -47,6 +47,7 @@ import org.slf4j.LoggerFactory;
 
 import cyclops.control.Try;
 import ru.serce.jnrfuse.ErrorCodes;
+import se.tfiskgul.mux2fs.ExceptionTranslator;
 import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
 import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
 import se.tfiskgul.mux2fs.fs.base.StatFiller;
@@ -68,17 +69,21 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 	}
 
 	protected final Function<Try.CheckedSupplier<Integer, Exception>, Integer> tryCatch = (supplier) -> {
-		return Try.withCatch(supplier, Exception.class) //
-				.recoverFor(AccessDeniedException.class, e -> -ErrorCodes.EPERM()) //
-				.recoverFor(NoSuchFileException.class, e -> -ErrorCodes.ENOENT()) //
-				.recoverFor(NotDirectoryException.class, e -> -ErrorCodes.ENOTDIR()) //
-				.recoverFor(NotLinkException.class, e -> -ErrorCodes.EINVAL()) //
-				.recoverFor(UnsupportedOperationException.class, e -> -ErrorCodes.ENOSYS()) //
-				.recoverFor(IOException.class, e -> {
+		return Try.withCatch(supplier, Exception.class).recover(this::translateOrThrow).get();
+	};
+
+	protected final int translateOrThrow(Exception exception) {
+		return ExceptionTranslator.<Integer, Exception> of(exception) //
+				.translate(AccessDeniedException.class, e -> -ErrorCodes.EPERM()) //
+				.translate(NoSuchFileException.class, e -> -ErrorCodes.ENOENT()) //
+				.translate(NotDirectoryException.class, e -> -ErrorCodes.ENOTDIR()) //
+				.translate(NotLinkException.class, e -> -ErrorCodes.EINVAL()) //
+				.translate(UnsupportedOperationException.class, e -> -ErrorCodes.ENOSYS()) //
+				.translate(IOException.class, e -> {
 					logger.warn("", e); // Unmapped IOException, log warning
 					return -ErrorCodes.EIO();
 				}).get();
-	};
+	}
 
 	protected final Function<Try.CheckedRunnable<IOException>, Integer> tryCatchRunnable = (runnable) -> {
 		return tryCatch.apply(() -> {
