@@ -226,10 +226,19 @@ public class MuxFs extends MirrorFs {
 		switch (state) {
 			case SUCCESSFUL:
 				return super.read(path, buf, size, offset, fileHandle);
+			case FAILED:
+				return muxingFailed(fileHandle, muxedFile, muxer);
 			default:
 				logger.error("BUG: Unhandled state {} in muxer {}", state, muxer);
 				return -ErrorCodes.ENOSYS();
 		}
+	}
+
+	private int muxingFailed(int fileHandle, MuxedFile muxedFile, Muxer muxer) {
+		logger.info("Muxing failed for {}", muxer);
+		muxFiles.remove(muxedFile.getInfo(), muxer);
+		openMuxFiles.remove(fileHandle, muxedFile);
+		return -ErrorCodes.EIO();
 	}
 
 	private boolean safeDelete(Path path) {

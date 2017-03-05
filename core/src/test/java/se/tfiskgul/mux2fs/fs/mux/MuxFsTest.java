@@ -24,6 +24,7 @@ SOFTWARE.
 package se.tfiskgul.mux2fs.fs.mux;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.fail;
 import static org.mockito.AdditionalMatchers.gt;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyLong;
@@ -50,6 +51,7 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import ru.serce.jnrfuse.ErrorCodes;
 import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
 import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
 import se.tfiskgul.mux2fs.fs.base.StatFiller;
@@ -465,5 +467,41 @@ public class MuxFsTest extends MirrorFsTest {
 		verifyNoMoreInteractions(muxer);
 		verify(filler).setFileHandle(gt(1));
 		verify(fileSystem.provider()).newFileChannel(eq(muxedFile), eq(set(StandardOpenOption.READ)));
+	}
+
+	@Test
+	public void testReadFromFailedMuxedFile()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
+		doNothing().when(filler).setFileHandle(handleCaptor.capture());
+		Path mkv = mockPath("file1.mkv");
+		Path srt = mockPath("file1.eng.srt", 2893756L);
+		mockShuffledDirectoryStream(mirrorRoot, mkv, srt);
+		Map<String, Object> attributes = mockAttributes(1, Instant.now());
+		when(fileSystem.provider().readAttributes(eq(mkv), eq("unix:*"))).thenReturn(attributes);
+		Muxer muxer = mock(Muxer.class);
+		when(muxerFactory.from(mkv, srt, tempDir)).thenReturn(muxer);
+		Path muxedFile = mockPath(tempDir, "file1-muxed.mkv");
+		when(muxer.getOutput()).thenReturn(Optional.of(muxedFile));
+		FileChannel fileChannel = mock(FileChannel.class);
+		when(fileSystem.provider().newFileChannel(eq(muxedFile), eq(set(StandardOpenOption.READ)))).thenReturn(fileChannel);
+		fs.open("file1.mkv", filler);
+		Integer fileHandle = handleCaptor.getValue();
+		when(muxer.state()).thenReturn(State.FAILED);
+		// When
+		int result = fs.read("file1.mkv", (data) -> fail(), 128, 64, fileHandle);
+		// Then
+		assertThat(result).isEqualTo(-ErrorCodes.EIO());
+		verify(muxerFactory).from(mkv, srt, tempDir);
+		verifyNoMoreInteractions(muxerFactory);
+		verify(muxer).start();
+		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).getOutput();
+		verify(muxer).state();
+		verifyNoMoreInteractions(muxer);
+		verify(filler).setFileHandle(gt(1));
+		verifyNoMoreInteractions(fileChannel);
 	}
 }
