@@ -25,6 +25,7 @@ package se.tfiskgul.mux2fs.fs.mux;
 
 import static java.util.stream.Collectors.toList;
 import static se.tfiskgul.mux2fs.Constants.BUG;
+import static se.tfiskgul.mux2fs.Constants.MUX_WAIT_LOOP_MS;
 import static se.tfiskgul.mux2fs.Constants.SUCCESS;
 
 import java.io.IOException;
@@ -54,6 +55,7 @@ import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
 import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
 import se.tfiskgul.mux2fs.fs.base.FileHandleFiller.Recorder;
 import se.tfiskgul.mux2fs.fs.base.FileInfo;
+import se.tfiskgul.mux2fs.fs.base.Sleeper;
 import se.tfiskgul.mux2fs.fs.base.StatFiller;
 import se.tfiskgul.mux2fs.fs.mirror.MirrorFs;
 import se.tfiskgul.mux2fs.mux.MuxedFile;
@@ -68,18 +70,21 @@ public class MuxFs extends MirrorFs {
 	private final ConcurrentMap<FileInfo, Muxer> muxFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
 	private final MuxerFactory muxerFactory;
 	private final ConcurrentMap<Integer, MuxedFile> openMuxFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
+	private final Sleeper sleeper;
 
 	public MuxFs(Path mirroredPath, Path tempDir) {
 		super(mirroredPath);
 		this.tempDir = tempDir;
 		this.muxerFactory = MuxerFactory.defaultFactory();
+		this.sleeper = (millis) -> Thread.sleep(millis);
 	}
 
 	@VisibleForTesting
-	MuxFs(Path mirroredPath, Path tempDir, MuxerFactory muxerFactory) {
+	MuxFs(Path mirroredPath, Path tempDir, MuxerFactory muxerFactory, Sleeper sleeper) {
 		super(mirroredPath);
 		this.tempDir = tempDir;
 		this.muxerFactory = muxerFactory;
+		this.sleeper = sleeper;
 	}
 
 	@Override
@@ -232,15 +237,15 @@ public class MuxFs extends MirrorFs {
 			case FAILED:
 				return muxingFailed(fileHandle, muxedFile, muxer);
 			case RUNNING:
-				return readRunningMuxer(path, buf, size, offset, fileHandle, muxedFile);
+				return readRunningMuxer(path, buf, size, offset, fileHandle, muxedFile, muxer);
 			default:
 				logger.error("BUG: Unhandled state {} in muxer {}", state, muxer);
 				return BUG;
 		}
 	}
 
-	private int readRunningMuxer(String path, Consumer<byte[]> buf, int size, long offset, int fileHandle, MuxedFile muxedFile) {
-		long maxPosition = offset + size; // This could overflow for really big files, close to 8388608 TB.
+	private int readRunningMuxer(String path, Consumer<byte[]> buf, int size, long offset, int fileHandle, MuxedFile muxedFile, Muxer muxer) {
+		long maxPosition = offset + size; // This could overflow for really big files / sizes, close to 8388608 TB.
 		FileChannel channelFor = getChannelFor(fileHandle);
 		if (channelFor == null) {
 			logger.error("BUG: FileChannel for file handle {} open {} not found", fileHandle, muxedFile);
@@ -249,13 +254,49 @@ public class MuxFs extends MirrorFs {
 		try {
 			long muxSize = channelFor.size();
 			if (maxPosition >= muxSize) { // Read beyond current mux progress
-				return -ErrorCodes.ENOSYS();
+				logger.debug("{}: read @ {} with mux progress {}, sleeping...", path, maxPosition, muxSize);
+				int result = waitForMuxing(muxer, maxPosition, channelFor, fileHandle, muxedFile);
+				if (result != 0) {
+					return result;
+				}
 			}
 			return super.read(path, buf, size, offset, fileHandle);
 		} catch (IOException e) {
 			logger.warn("IOException for {}", muxedFile, e);
 			return -ErrorCodes.EIO();
+		} catch (InterruptedException e) {
+			logger.warn("Interrupted while waiting for {}", muxedFile, e);
+			return -ErrorCodes.EINTR();
 		}
+	}
+
+	/**
+	 * At this point, we are still muxing, and trying to read beyond muxed data.
+	 *
+	 * We park here and wait until it is available.
+	 */
+	private int waitForMuxing(Muxer muxer, long maxPosition, FileChannel fileChannel, int fileHandle, MuxedFile muxedFile)
+			throws IOException, InterruptedException {
+		long currentSize = 0;
+		while (maxPosition >= (currentSize = fileChannel.size())) {
+			State state = muxer.state();
+			switch (state) {
+				case RUNNING:
+					logger.debug("Want to read @ {} (file is {}), so waiting for {}", maxPosition, currentSize, muxer);
+					sleeper.sleep(MUX_WAIT_LOOP_MS);
+					break;
+				case SUCCESSFUL:
+					logger.debug("Done waiting to read @ {}", maxPosition, muxer);
+					return SUCCESS;
+				case FAILED:
+					return muxingFailed(fileHandle, muxedFile, muxer);
+				default:
+					logger.error("BUG: Unhandled state {} in muxer {}", state, muxer);
+					return BUG;
+			}
+		}
+		logger.debug("Done waiting to read @ {}", maxPosition, muxer);
+		return SUCCESS;
 	}
 
 	private int muxingFailed(int fileHandle, MuxedFile muxedFile, Muxer muxer) {

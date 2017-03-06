@@ -21,18 +21,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
-package se.tfiskgul.mux2fs;
+package se.tfiskgul.mux2fs.fs.base;
 
-import ru.serce.jnrfuse.ErrorCodes;
+@FunctionalInterface
+public interface Sleeper {
 
-public final class Constants {
-
-	public static final int BUG = -ErrorCodes.ENOSYS();
-	public static final int THREAD_BUF_SIZE = 128 * 1024;
-	public static final int FILE_HANDLE_START_NO = 32;
-	public static final int SUCCESS = 0;
-	public static final int MUX_WAIT_LOOP_MS = 10;
-
-	private Constants() { // NOPMD
-	}
+	void sleep(int millis)
+			throws InterruptedException;
 }

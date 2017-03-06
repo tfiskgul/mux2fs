@@ -36,6 +36,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static se.tfiskgul.mux2fs.Constants.MUX_WAIT_LOOP_MS;
 import static se.tfiskgul.mux2fs.Constants.SUCCESS;
 
 import java.io.IOException;
@@ -55,6 +56,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import ru.serce.jnrfuse.ErrorCodes;
 import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
 import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
+import se.tfiskgul.mux2fs.fs.base.Sleeper;
 import se.tfiskgul.mux2fs.fs.base.StatFiller;
 import se.tfiskgul.mux2fs.fs.mirror.MirrorFsTest;
 import se.tfiskgul.mux2fs.mux.Muxer;
@@ -65,6 +67,7 @@ public class MuxFsTest extends MirrorFsTest {
 
 	private Path tempDir;
 	private MuxerFactory muxerFactory;
+	private Sleeper sleeper;
 
 	@Before
 	@Override
@@ -73,7 +76,8 @@ public class MuxFsTest extends MirrorFsTest {
 		mirrorRoot = mockPath("/mirror/root/", fileSystem);
 		tempDir = mockPath("tmp");
 		muxerFactory = mock(MuxerFactory.class);
-		fs = new MuxFs(mirrorRoot, tempDir, muxerFactory);
+		sleeper = mock(Sleeper.class);
+		fs = new MuxFs(mirrorRoot, tempDir, muxerFactory, sleeper);
 	}
 
 	@Test
@@ -584,5 +588,49 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(filler).setFileHandle(gt(1));
 		verify(fileChannel).size();
 		verifyNoMoreInteractions(fileChannel);
+	}
+
+	@Test
+	public void testReadFromRunningMuxedFileFartherThanProgressIsBlocking()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
+		doNothing().when(filler).setFileHandle(handleCaptor.capture());
+		Path mkv = mockPath("file1.mkv");
+		Path srt = mockPath("file1.eng.srt", 2893756L);
+		mockShuffledDirectoryStream(mirrorRoot, mkv, srt);
+		Map<String, Object> attributes = mockAttributes(1, Instant.now());
+		when(fileSystem.provider().readAttributes(eq(mkv), eq("unix:*"))).thenReturn(attributes);
+		Path muxedFile = mockPath(tempDir, "file1-muxed.mkv");
+		Muxer muxer = mock(Muxer.class);
+		when(muxer.state()).thenReturn(State.RUNNING);
+		when(muxer.getOutput()).thenReturn(Optional.of(muxedFile));
+		when(muxerFactory.from(mkv, srt, tempDir)).thenReturn(muxer);
+		FileChannel fileChannel = mock(FileChannel.class);
+		when(fileSystem.provider().newFileChannel(eq(muxedFile), eq(set(StandardOpenOption.READ)))).thenReturn(fileChannel);
+		fs.open("file1.mkv", filler);
+		Integer fileHandle = handleCaptor.getValue();
+		ArgumentCaptor<ByteBuffer> bufferCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
+		when(fileChannel.read(bufferCaptor.capture(), eq(890L))).thenReturn(128);
+		// First size is 64, way smaller than where we want to read
+		when(fileChannel.size()).thenReturn(64L, 128L, 256L, 512L, 1024L);
+		// When
+		int bytesRead = fs.read("file1.mkv", (data) -> assertThat(data).hasSize(128), 128, 890, fileHandle);
+		// Then
+		assertThat(bytesRead).isEqualTo(128);
+		verify(muxerFactory).from(mkv, srt, tempDir);
+		verifyNoMoreInteractions(muxerFactory);
+		verify(muxer).start();
+		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).getOutput();
+		verify(muxer, times(4)).state();
+		verifyNoMoreInteractions(muxer);
+		verify(filler).setFileHandle(gt(1));
+		verify(fileChannel, times(5)).size();
+		verify(fileChannel).read(any(ByteBuffer.class), eq(890L));
+		verifyNoMoreInteractions(fileChannel);
+		assertThat(bufferCaptor.getValue().limit()).isEqualTo(128);
+		verify(sleeper, times(3)).sleep(MUX_WAIT_LOOP_MS);
 	}
 }
