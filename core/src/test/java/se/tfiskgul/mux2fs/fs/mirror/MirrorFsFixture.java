@@ -23,24 +23,38 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs.fs.mirror;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static se.tfiskgul.mux2fs.Constants.SUCCESS;
+
+import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 import org.junit.Before;
+import org.powermock.api.mockito.PowerMockito;
 
 import se.tfiskgul.mux2fs.Fixture;
+import se.tfiskgul.mux2fs.fs.base.FileChannelCloser;
+import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
 
 public class MirrorFsFixture extends Fixture {
 
 	protected FileSystem fileSystem;
 	protected Path mirrorRoot;
 	protected se.tfiskgul.mux2fs.fs.base.FileSystem fs;
+	protected FileChannelCloser fileChannelCloser;
 
 	@Before
 	public void before() {
 		fileSystem = mockFileSystem();
 		mirrorRoot = mockPath("/mirror/root/", fileSystem);
-		fs = new MirrorFs(mirrorRoot);
+		fileChannelCloser = mock(FileChannelCloser.class);
+		fs = new MirrorFs(mirrorRoot, fileChannelCloser);
 	}
 
 	protected Path mockPath(String name) {
@@ -49,5 +63,15 @@ public class MirrorFsFixture extends Fixture {
 
 	protected Path mockPath(String name, long extraSize) {
 		return mockPath(mirrorRoot, name, extraSize);
+	}
+
+	protected FileChannel mockAndOpen(String name)
+			throws IOException {
+		Path path = mockPath(mirrorRoot, name);
+		FileChannel fileChannel = PowerMockito.mock(FileChannel.class);
+		when(fileSystem.provider().newFileChannel(eq(path), eq(set(StandardOpenOption.READ)))).thenReturn(fileChannel);
+		int result = fs.open(name, mock(FileHandleFiller.class));
+		assertThat(result).isEqualTo(SUCCESS);
+		return fileChannel;
 	}
 }

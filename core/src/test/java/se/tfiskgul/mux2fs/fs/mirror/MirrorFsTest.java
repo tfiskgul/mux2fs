@@ -441,4 +441,71 @@ public class MirrorFsTest extends MirrorFsFixture {
 		// Then
 		assertThat(result).isEqualTo(SUCCESS);
 	}
+
+	@Test
+	public void testReleaseClosesOpenFileChannel()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
+		doNothing().when(filler).setFileHandle(handleCaptor.capture());
+		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		FileChannel fileChannel = mock(FileChannel.class);
+		when(fileSystem.provider().newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)))).thenReturn(fileChannel);
+		fs.open("foo.bar", filler);
+		// When
+		int result = fs.release("foo.bar", handleCaptor.getValue());
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+		verify(fileChannelCloser).close(fileChannel);
+		verifyNoMoreInteractions(fileChannel);
+	}
+
+	@Test
+	public void testRelease()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
+		doNothing().when(filler).setFileHandle(handleCaptor.capture());
+		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		when(fileSystem.provider().newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)))).thenReturn(mock(FileChannel.class));
+		fs.open("foo.bar", filler);
+		// When
+		int result = fs.release("foo.bar", handleCaptor.getValue());
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+	}
+
+	@Test
+	public void testReleaseTwice()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
+		doNothing().when(filler).setFileHandle(handleCaptor.capture());
+		Path fooBar = mockPath(mirrorRoot, "foo.bar");
+		when(fileSystem.provider().newFileChannel(eq(fooBar), eq(set(StandardOpenOption.READ)))).thenReturn(mock(FileChannel.class));
+		fs.open("foo.bar", filler);
+		fs.release("foo.bar", handleCaptor.getValue());
+		// When
+		int result = fs.release("foo.bar", handleCaptor.getValue());
+		// Then
+		assertThat(result).isEqualTo(-ErrorCodes.EBADF());
+	}
+
+	@Test
+	public void testDestroyClosesFileChannels()
+			throws Exception {
+		// Given
+		FileChannel foo = mockAndOpen("foo");
+		FileChannel bar = mockAndOpen("bar");
+		// When
+		fs.destroy();
+		// Then
+		verify(fileChannelCloser).close(foo);
+		verifyNoMoreInteractions(foo);
+		verify(fileChannelCloser).close(bar);
+		verifyNoMoreInteractions(bar);
+	}
 }

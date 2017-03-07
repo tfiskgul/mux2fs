@@ -49,10 +49,13 @@ import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import cyclops.control.Try;
 import ru.serce.jnrfuse.ErrorCodes;
 import se.tfiskgul.mux2fs.ExceptionTranslator;
 import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
+import se.tfiskgul.mux2fs.fs.base.FileChannelCloser;
 import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
 import se.tfiskgul.mux2fs.fs.base.StatFiller;
 
@@ -64,11 +67,21 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 	private final FileSystem fileSystem;
 	private final AtomicInteger fileHandleCounter = new AtomicInteger(FILE_HANDLE_START_NO);
 	private final ConcurrentMap<Integer, FileChannel> openFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
+	private final FileChannelCloser fileChannelCloser;
 
 	public MirrorFs(Path mirroredPath) {
 		super();
 		this.mirroredRoot = mirroredPath.toString();
 		this.fileSystem = mirroredPath.getFileSystem();
+		this.fileChannelCloser = this::close;
+	}
+
+	@VisibleForTesting
+	protected MirrorFs(Path mirroredPath, FileChannelCloser fileChannelCloser) {
+		super();
+		this.mirroredRoot = mirroredPath.toString();
+		this.fileSystem = mirroredPath.getFileSystem();
+		this.fileChannelCloser = fileChannelCloser;
 	}
 
 	protected final Function<Try.CheckedSupplier<Integer, Exception>, Integer> tryCatch = (supplier) -> {
@@ -202,6 +215,10 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 	}
 
 	protected void safeClose(FileChannel fileChannel) {
+		this.fileChannelCloser.close(fileChannel);
+	}
+
+	private final void close(FileChannel fileChannel) {
 		Optional.ofNullable(fileChannel).map(fc -> Try.runWithCatch(() -> fileChannel.close(), IOException.class).onFail(e -> logger.trace("", e)));
 	}
 

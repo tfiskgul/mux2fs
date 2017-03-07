@@ -56,6 +56,7 @@ import org.mockito.ArgumentCaptor;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import ru.serce.jnrfuse.ErrorCodes;
 import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
+import se.tfiskgul.mux2fs.fs.base.FileChannelCloser;
 import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
 import se.tfiskgul.mux2fs.fs.base.Sleeper;
 import se.tfiskgul.mux2fs.fs.base.StatFiller;
@@ -78,7 +79,8 @@ public class MuxFsTest extends MirrorFsTest {
 		tempDir = mockPath("tmp");
 		muxerFactory = mock(MuxerFactory.class);
 		sleeper = mock(Sleeper.class);
-		fs = new MuxFs(mirrorRoot, tempDir, muxerFactory, sleeper);
+		fileChannelCloser = mock(FileChannelCloser.class);
+		fs = new MuxFs(mirrorRoot, tempDir, muxerFactory, sleeper, fileChannelCloser);
 	}
 
 	@Test

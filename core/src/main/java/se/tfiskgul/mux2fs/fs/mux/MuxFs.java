@@ -52,6 +52,7 @@ import com.google.common.annotations.VisibleForTesting;
 import cyclops.control.Try;
 import ru.serce.jnrfuse.ErrorCodes;
 import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
+import se.tfiskgul.mux2fs.fs.base.FileChannelCloser;
 import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
 import se.tfiskgul.mux2fs.fs.base.FileHandleFiller.Recorder;
 import se.tfiskgul.mux2fs.fs.base.FileInfo;
@@ -80,8 +81,8 @@ public class MuxFs extends MirrorFs {
 	}
 
 	@VisibleForTesting
-	MuxFs(Path mirroredPath, Path tempDir, MuxerFactory muxerFactory, Sleeper sleeper) {
-		super(mirroredPath);
+	MuxFs(Path mirroredPath, Path tempDir, MuxerFactory muxerFactory, Sleeper sleeper, FileChannelCloser fileChannelCloser) {
+		super(mirroredPath, fileChannelCloser);
 		this.tempDir = tempDir;
 		this.muxerFactory = muxerFactory;
 		this.sleeper = sleeper;
