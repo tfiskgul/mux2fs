@@ -171,7 +171,7 @@ public abstract class Fixture {
 		public abstract int value();
 	}
 
-	protected Map<String, Object> mockAttributes(int nonce, Instant base) {
+	protected Map<String, Object> mockAttributes(int nonce, Instant base, long size) {
 		Map<String, Object> attributes = new HashMap<>();
 		attributes.put("dev", nonce * 3L);
 		attributes.put("ino", nonce * 5L);
@@ -180,16 +180,31 @@ public abstract class Fixture {
 		attributes.put("uid", nonce * 13);
 		attributes.put("gid", nonce * 17);
 		attributes.put("rdev", nonce * 19L);
-		attributes.put("size", nonce * 23L);
+		attributes.put("size", size);
 		attributes.put("lastAccessTime", FileTime.from(base.minus(29, ChronoUnit.DAYS)));
 		attributes.put("lastModifiedTime", FileTime.from(base.minus(31, ChronoUnit.DAYS)));
 		attributes.put("ctime", FileTime.from(base.minus(37, ChronoUnit.DAYS)));
 		return attributes;
 	}
 
+	protected Map<String, Object> mockAttributes(int nonce, Instant base, Path path) {
+		return mockAttributes(nonce, base, path.toFile().length());
+	}
+
+	protected Map<String, Object> mockAttributes(int nonce, Instant base) {
+		return mockAttributes(nonce, base, nonce * 23L);
+	}
+
 	protected void mockAttributes(Path mkv, int nonce)
 			throws IOException {
 		Map<String, Object> attributes = mockAttributes(nonce, Instant.now());
 		when(mkv.getFileSystem().provider().readAttributes(eq(mkv), eq("unix:*"))).thenReturn(attributes);
+	}
+
+	protected void mockAttributes(Path path, int nonce, long size)
+			throws IOException {
+		when(path.toFile().length()).thenReturn(size);
+		Map<String, Object> attributes = mockAttributes(nonce, Instant.now(), path);
+		when(path.getFileSystem().provider().readAttributes(eq(path), eq("unix:*"))).thenReturn(attributes);
 	}
 }

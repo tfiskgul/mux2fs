@@ -29,18 +29,24 @@ import static org.mockito.AdditionalMatchers.gt;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static se.tfiskgul.mux2fs.Constants.GIGABYTE;
 import static se.tfiskgul.mux2fs.Constants.MUX_WAIT_LOOP_MS;
 import static se.tfiskgul.mux2fs.Constants.SUCCESS;
 
+import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
@@ -50,6 +56,7 @@ import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import ru.serce.jnrfuse.ErrorCodes;
@@ -63,6 +70,7 @@ import se.tfiskgul.mux2fs.mux.Muxer;
 import se.tfiskgul.mux2fs.mux.Muxer.MuxerFactory;
 import se.tfiskgul.mux2fs.mux.Muxer.State;
 
+@SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
 public class MuxFsTest extends MirrorFsTest {
 
 	private Path tempDir;
@@ -399,7 +407,6 @@ public class MuxFsTest extends MirrorFsTest {
 	}
 
 	@Test
-	@SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
 	public void testOpenMkvMatchingSubOpenMuxedFileFailsFallsBackToOriginal()
 			throws Exception {
 		// Given
@@ -762,6 +769,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verifyNoMoreInteractions(fileChannel);
 		assertThat(bufferCaptor.getValue().limit()).isEqualTo(128);
 		verify(fileChannelCloser).close(fileChannel);
+		verify(muxer.getOutput().get().toFile(), never()).delete();
 	}
 
 	@Test
@@ -809,7 +817,6 @@ public class MuxFsTest extends MirrorFsTest {
 	}
 
 	@Test
-	@SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
 	public void testDestroyAfterMuxRemovesPreventsFutherReads()
 			throws Exception {
 		// Given
@@ -887,5 +894,65 @@ public class MuxFsTest extends MirrorFsTest {
 		verifyNoMoreInteractions(muxer2); // The second muxer is never called, result of first one still valid
 		verify(filler, times(2)).setFileHandle(gt(1));
 		verify(fileSystem.provider(), times(2)).newFileChannel(eq(muxedFile), eq(set(StandardOpenOption.READ)));
+	}
+
+	@Test
+	public void testOldMuxedFilesAreCleanedUpAfterSomeMaxSize()
+			throws Exception {
+		// Given
+		// When
+		File muxed1 = openAndClose("file1", 1, 7L * GIGABYTE);
+		File muxed2 = openAndClose("file2", 2, 7L * GIGABYTE);
+		File muxed3 = openAndClose("file3", 3, 7L * GIGABYTE);
+		File muxed4 = openAndClose("file4", 4, 7L * GIGABYTE);
+		File muxed5 = openAndClose("file5", 5, 7L * GIGABYTE);
+		File muxed6 = openAndClose("file6", 6, 7L * GIGABYTE);
+		Method deleteMethod = File.class.getMethod("delete");
+		// Then
+		verify(muxed1, atMost(1)).delete();
+		verify(muxed2, atMost(1)).delete();
+		verify(muxed3, atMost(1)).delete();
+		verify(muxed4, atMost(1)).delete();
+		verify(muxed5, atMost(1)).delete();
+		verify(muxed6, atMost(1)).delete();
+		long c1 = count(muxed1, deleteMethod);
+		long c2 = count(muxed2, deleteMethod);
+		long c3 = count(muxed3, deleteMethod);
+		long c4 = count(muxed4, deleteMethod);
+		long c5 = count(muxed5, deleteMethod);
+		long c6 = count(muxed6, deleteMethod);
+		assertThat(c1 + c2 + c3 + c4 + c5 + c6).isGreaterThanOrEqualTo(2).isLessThanOrEqualTo(4);
+	}
+
+	private long count(Object mock, Method method) {
+		return Mockito.mockingDetails(mock).getInvocations().stream().filter(inv -> inv.getMethod().equals(method)).count();
+	}
+
+	private File openAndClose(String name, int nonce, long size)
+			throws Exception {
+		String mkvName = name + ".mkv";
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
+		doNothing().when(filler).setFileHandle(handleCaptor.capture());
+		Path mkv = mockPath(mkvName);
+		Path srt = mockPath(name + ".srt");
+		mockShuffledDirectoryStream(mirrorRoot, mkv, srt);
+		mockAttributes(mkv, nonce, size);
+		Muxer muxer = mock(Muxer.class);
+		when(muxerFactory.from(mkv, srt, tempDir)).thenReturn(muxer);
+		Path muxedFile = mockPath(tempDir, "file1.mkv");
+		when(muxer.getOutput()).thenReturn(Optional.of(muxedFile));
+		when(fileSystem.provider().newFileChannel(eq(muxedFile), eq(set(StandardOpenOption.READ)))).thenReturn(mock(FileChannel.class));
+		fs.open(mkvName, filler);
+		fs.release(mkvName, handleCaptor.getValue());
+		verify(muxerFactory).from(mkv, srt, tempDir);
+		verifyNoMoreInteractions(muxerFactory);
+		verify(muxer).start();
+		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer, atLeast(1)).getOutput();
+		verifyNoMoreInteractions(muxer);
+		verify(filler).setFileHandle(gt(1));
+		verify(fileSystem.provider()).newFileChannel(eq(muxedFile), eq(set(StandardOpenOption.READ)));
+		return muxedFile.toFile();
 	}
 }

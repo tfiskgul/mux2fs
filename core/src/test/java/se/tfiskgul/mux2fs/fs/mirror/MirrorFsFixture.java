@@ -61,8 +61,8 @@ public class MirrorFsFixture extends Fixture {
 		return mockPath(mirrorRoot, name);
 	}
 
-	protected Path mockPath(String name, long extraSize) {
-		return mockPath(mirrorRoot, name, extraSize);
+	protected Path mockPath(String name, long size) {
+		return mockPath(mirrorRoot, name, size);
 	}
 
 	protected FileChannel mockAndOpen(String name)

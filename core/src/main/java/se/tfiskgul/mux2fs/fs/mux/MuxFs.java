@@ -23,8 +23,12 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs.fs.mux;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static se.tfiskgul.mux2fs.Constants.BUG;
+import static se.tfiskgul.mux2fs.Constants.KILOBYTE;
+import static se.tfiskgul.mux2fs.Constants.MEGABYTE;
 import static se.tfiskgul.mux2fs.Constants.MUX_WAIT_LOOP_MS;
 import static se.tfiskgul.mux2fs.Constants.SUCCESS;
 
@@ -39,7 +43,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -48,6 +51,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.RemovalCause;
+import com.google.common.cache.RemovalListener;
+import com.google.common.cache.RemovalNotification;
 
 import cyclops.control.Try;
 import ru.serce.jnrfuse.ErrorCodes;
@@ -72,6 +80,29 @@ public class MuxFs extends MirrorFs {
 	private final Sleeper sleeper;
 	private final ConcurrentMap<FileInfo, Muxer> muxFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
 	private final ConcurrentMap<Integer, MuxedFile> openMuxFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
+	private final RemovalListener<FileInfo, MuxedFile> closedMuxlistener = new RemovalListener<FileInfo, MuxedFile>() {
+
+		@Override
+		public void onRemoval(RemovalNotification<FileInfo, MuxedFile> notification) {
+			if (notification.getCause() != RemovalCause.EXPLICIT) {
+				MuxedFile muxedFile = notification.getValue();
+				// This is racy, at worst we will re-trigger muxing for unlucky files being re-opened
+				if (!openMuxFiles.containsValue(muxedFile)) {
+					muxFiles.remove(muxedFile.getInfo(), muxedFile.getMuxer());
+					logger.info("Expired {}: {} deleted = {}", notification.getCause(), muxedFile, safeDelete(muxedFile));
+				} else {
+					logger.warn("BUG: Expired {}: {}, but is still open!", notification.getCause(), muxedFile);
+				}
+			}
+		}
+	};
+
+	private final Cache<FileInfo, MuxedFile> closedMuxFiles = CacheBuilder.newBuilder() //
+			.maximumWeight(50 * KILOBYTE) // FIXME: Mount parameter
+			.removalListener(closedMuxlistener) //
+			.weigher((info, path) -> (int) (info.getSize() / MEGABYTE)) // Weigher can only take integer, so divide down into MBs
+			.expireAfterWrite(20, MINUTES) // FIXME: Mount parameter
+			.build();
 
 	public MuxFs(Path mirroredPath, Path tempDir) {
 		super(mirroredPath);
@@ -186,7 +217,7 @@ public class MuxFs extends MirrorFs {
 			return super.open(path, filler);
 		}
 		return Try.withCatch(() -> FileInfo.of(muxFile), Exception.class).map(info -> {
-			// TODO: closedMuxFiles.invalidate(info);
+			closedMuxFiles.invalidate(info);
 			Muxer muxer = muxerFactory.from(muxFile, subFiles.get(0), tempDir);
 			Muxer previous = muxFiles.putIfAbsent(info, muxer); // Others might be racing the same file
 			if (previous != null) { // They won the race
@@ -194,7 +225,7 @@ public class MuxFs extends MirrorFs {
 			}
 			try {
 				muxer.start();
-				muxer.waitFor(50, TimeUnit.MILLISECONDS); // Short wait to catch errors earlier than read()
+				muxer.waitFor(50, MILLISECONDS); // Short wait to catch errors earlier than read()
 			} catch (IOException | InterruptedException e) {
 				// Something dun goofed. Second best thing is to open the original file then.
 				logger.warn("Muxing failed, falling back to unmuxed file {}", muxFile, e);
@@ -248,7 +279,11 @@ public class MuxFs extends MirrorFs {
 	@Override
 	public int release(String path, int fileHandle) {
 		logger.info("release({}, {})", fileHandle, path);
-		openMuxFiles.remove(fileHandle);
+		MuxedFile muxed = openMuxFiles.remove(fileHandle);
+		if (muxed != null && !openMuxFiles.containsValue(muxed)) {
+			// Muxed file is no longer open, save it in cache for quick re-open
+			closedMuxFiles.put(muxed.getInfo(), muxed);
+		}
 		return super.release(path, fileHandle);
 	}
 
@@ -256,6 +291,9 @@ public class MuxFs extends MirrorFs {
 	public void destroy() {
 		super.destroy();
 		logger.info("Cleaning up");
+		closedMuxFiles.asMap().forEach((info, muxed) -> muxed.getMuxer().getOutput().map(this::safeDelete));
+		closedMuxFiles.invalidateAll();
+		closedMuxFiles.cleanUp();
 		openMuxFiles.forEach((fh, muxed) -> safeDelete(muxed));
 		openMuxFiles.clear();
 		muxFiles.forEach((fi, muxer) -> muxer.getOutput().map(this::safeDelete));
