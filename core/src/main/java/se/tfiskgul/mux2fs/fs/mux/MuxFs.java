@@ -252,6 +252,23 @@ public class MuxFs extends MirrorFs {
 		return super.release(path, fileHandle);
 	}
 
+	@Override
+	public void destroy() {
+		super.destroy();
+		logger.info("Cleaning up");
+		openMuxFiles.forEach((fh, muxed) -> safeDelete(muxed));
+		openMuxFiles.clear();
+		muxFiles.forEach((fi, muxer) -> muxer.getOutput().map(this::safeDelete));
+		muxFiles.clear();
+	}
+
+	private boolean safeDelete(MuxedFile file) {
+		if (file != null) {
+			return file.getMuxer().getOutput().map(this::safeDelete).orElse(false);
+		}
+		return false;
+	}
+
 	private int readRunningMuxer(String path, Consumer<byte[]> buf, int size, long offset, int fileHandle, MuxedFile muxedFile, Muxer muxer) {
 		long maxPosition = offset + size; // This could overflow for really big files / sizes, close to 8388608 TB.
 		FileChannel channelFor = getChannelFor(fileHandle);

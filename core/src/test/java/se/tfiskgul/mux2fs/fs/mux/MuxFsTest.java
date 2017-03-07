@@ -823,4 +823,51 @@ public class MuxFsTest extends MirrorFsTest {
 		assertThat(bufferCaptor.getValue().limit()).isEqualTo(128);
 		verify(fileChannelCloser).close(fileChannel);
 	}
+
+	@Test
+	@SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
+	public void testDestroyAfterMuxRemovesPreventsFutherReads()
+			throws Exception {
+		// Given
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
+		doNothing().when(filler).setFileHandle(handleCaptor.capture());
+		Path mkv = mockPath("file1.mkv");
+		Path srt = mockPath("file1.eng.srt", 2893756L);
+		mockShuffledDirectoryStream(mirrorRoot, mkv, srt);
+		Map<String, Object> attributes = mockAttributes(1, Instant.now());
+		when(fileSystem.provider().readAttributes(eq(mkv), eq("unix:*"))).thenReturn(attributes);
+		Muxer muxer = mock(Muxer.class);
+		when(muxerFactory.from(mkv, srt, tempDir)).thenReturn(muxer);
+		Path muxedFile = mockPath(tempDir, "file1-muxed.mkv");
+		when(muxer.getOutput()).thenReturn(Optional.of(muxedFile));
+		FileChannel fileChannel = mock(FileChannel.class);
+		when(fileSystem.provider().newFileChannel(eq(muxedFile), eq(set(StandardOpenOption.READ)))).thenReturn(fileChannel);
+		fs.open("file1.mkv", filler);
+		Integer fileHandle = handleCaptor.getValue();
+		when(muxer.state()).thenReturn(State.RUNNING);
+		ArgumentCaptor<ByteBuffer> bufferCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
+		when(fileChannel.read(bufferCaptor.capture(), eq(890L))).thenReturn(128);
+		when(fileChannel.size()).thenReturn(1024L + 890L + 128L); // Size is 1024 larger than where we're requesting to read
+		fs.read("file1.mkv", (data) -> assertThat(data).hasSize(128), 128, 890, fileHandle);
+		fs.destroy();
+		// When
+		int result = fs.read("file1.mkv", (data) -> fail(), 128, 890, fileHandle);
+		// Then
+		assertThat(result).isEqualTo(-ErrorCodes.EBADF());
+		verify(muxerFactory).from(mkv, srt, tempDir);
+		verifyNoMoreInteractions(muxerFactory);
+		verify(muxer).start();
+		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer, times(3)).getOutput();
+		verify(muxer).state();
+		verifyNoMoreInteractions(muxer);
+		verify(filler).setFileHandle(gt(1));
+		verify(fileChannel).size();
+		verify(fileChannel).read(any(ByteBuffer.class), eq(890L));
+		verifyNoMoreInteractions(fileChannel);
+		assertThat(bufferCaptor.getValue().limit()).isEqualTo(128);
+		verify(fileChannelCloser).close(fileChannel);
+		verify(muxedFile.toFile(), times(2)).delete();
+	}
 }
