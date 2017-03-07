@@ -68,10 +68,10 @@ public class MuxFs extends MirrorFs {
 
 	private static final Logger logger = LoggerFactory.getLogger(MuxFs.class);
 	private final Path tempDir;
-	private final ConcurrentMap<FileInfo, Muxer> muxFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
 	private final MuxerFactory muxerFactory;
-	private final ConcurrentMap<Integer, MuxedFile> openMuxFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
 	private final Sleeper sleeper;
+	private final ConcurrentMap<FileInfo, Muxer> muxFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
+	private final ConcurrentMap<Integer, MuxedFile> openMuxFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
 
 	public MuxFs(Path mirroredPath, Path tempDir) {
 		super(mirroredPath);
@@ -243,6 +243,13 @@ public class MuxFs extends MirrorFs {
 				logger.error("BUG: Unhandled state {} in muxer {}", state, muxer);
 				return BUG;
 		}
+	}
+
+	@Override
+	public int release(String path, int fileHandle) {
+		logger.info("release({}, {})", fileHandle, path);
+		openMuxFiles.remove(fileHandle);
+		return super.release(path, fileHandle);
 	}
 
 	private int readRunningMuxer(String path, Consumer<byte[]> buf, int size, long offset, int fileHandle, MuxedFile muxedFile, Muxer muxer) {
