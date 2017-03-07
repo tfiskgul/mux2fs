@@ -118,8 +118,8 @@ public abstract class Fixture {
 	protected DirectoryStream<Path> mockDirectoryStream(Path root, List<Path> entries)
 			throws IOException {
 		DirectoryStream<Path> directoryStream = mock(DirectoryStream.class);
-		when(directoryStream.iterator()).thenReturn(entries.iterator());
-		when(directoryStream.spliterator()).thenReturn(entries.spliterator());
+		when(directoryStream.iterator()).thenAnswer((inv) -> entries.iterator());
+		when(directoryStream.spliterator()).thenAnswer((inv) -> entries.spliterator());
 		when(root.getFileSystem().provider().newDirectoryStream(eq(root), any())).thenReturn(directoryStream);
 		return directoryStream;
 	}
@@ -185,5 +185,11 @@ public abstract class Fixture {
 		attributes.put("lastModifiedTime", FileTime.from(base.minus(31, ChronoUnit.DAYS)));
 		attributes.put("ctime", FileTime.from(base.minus(37, ChronoUnit.DAYS)));
 		return attributes;
+	}
+
+	protected void mockAttributes(Path mkv, int nonce)
+			throws IOException {
+		Map<String, Object> attributes = mockAttributes(nonce, Instant.now());
+		when(mkv.getFileSystem().provider().readAttributes(eq(mkv), eq("unix:*"))).thenReturn(attributes);
 	}
 }
