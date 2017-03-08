@@ -61,6 +61,7 @@ import se.tfiskgul.mux2fs.Fixture;
 import se.tfiskgul.mux2fs.mux.Muxer.ProcessBuilderFactory;
 import se.tfiskgul.mux2fs.mux.Muxer.State;
 
+@SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
 @PowerMockIgnore({ "org.powermock.*", "org.mockito.*", "javax.management.*", "org.jacoco.agent.rt.*" })
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ ProcessBuilder.class, Muxer.class })
@@ -145,7 +146,6 @@ public class MuxerTest extends Fixture {
 	}
 
 	@Test
-	@SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
 	public void testStartIoExceptionGivesFailedState()
 			throws Exception {
 		// Given
@@ -183,7 +183,7 @@ public class MuxerTest extends Fixture {
 	}
 
 	@Test
-	@SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
+
 	public void testStartStateChangeFailed()
 			throws Exception {
 		// Given
@@ -329,5 +329,20 @@ public class MuxerTest extends Fixture {
 		verify(process).isAlive();
 		verify(process).exitValue();
 		verifyNoMoreInteractions(process);
+	}
+
+	@Test
+	public void testIOExceptionInStartGoesToFailedState()
+			throws Exception {
+		// Given
+		doThrow(new NoSuchFileException(null)).when(provider).checkAccess(tempDir, AccessMode.WRITE);
+		Muxer muxer = Muxer.of(mkv, srt, tempDir);
+		try {
+			muxer.start();
+			fail("Must throw NoSuchFileException");
+		} catch (NoSuchFileException e) { // NOPMD: Ignored
+		}
+		// Then
+		assertThat(muxer.state()).isEqualTo(State.FAILED);
 	}
 }

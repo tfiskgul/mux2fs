@@ -105,15 +105,15 @@ public class Muxer {
 	public void start()
 			throws IOException {
 		if (state.compareAndSet(NOT_STARTED, RUNNING)) {
-			access(mkv, AccessMode.READ);
-			access(srt, AccessMode.READ);
-			access(tempDir, AccessMode.WRITE);
-			output.toFile().deleteOnExit();
 			try {
+				access(mkv, AccessMode.READ);
+				access(srt, AccessMode.READ);
+				access(tempDir, AccessMode.WRITE);
+				output.toFile().deleteOnExit();
 				ProcessBuilder builder = factory.from("mkvmerge", "-o", output.toString(), mkv.toString(), srt.toString());
 				builder.directory(tempDir.toFile()).inheritIO(); // TODO: Better solution than inheritIO
 				process = builder.start();
-			} catch (IOException e) {
+			} catch (Exception e) {
 				state.set(FAILED);
 				deleteWarn(output);
 				throw e;
