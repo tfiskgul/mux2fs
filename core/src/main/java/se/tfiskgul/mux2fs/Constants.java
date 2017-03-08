@@ -31,7 +31,7 @@ public final class Constants {
 	public static final int THREAD_BUF_SIZE = 128 * 1024;
 	public static final int FILE_HANDLE_START_NO = 32;
 	public static final int SUCCESS = 0;
-	public static final int MUX_WAIT_LOOP_MS = 10;
+	public static final int MUX_WAIT_LOOP_MS = 500;
 	public static final long KILOBYTE = 1024;
 	public static final long MEGABYTE = 1024 * KILOBYTE;
 	public static final long GIGABYTE = 1024 * MEGABYTE;
