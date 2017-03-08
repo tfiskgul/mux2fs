@@ -94,6 +94,7 @@ public class MuxerTest extends Fixture {
 		when(factory.from(Matchers.<String> anyVararg())).thenReturn(builder);
 		when(builder.directory(any())).thenReturn(builder);
 		process = mock(Process.class);
+		when(builder.start()).thenReturn(process);
 	}
 
 	@Test
@@ -172,7 +173,6 @@ public class MuxerTest extends Fixture {
 			throws Exception {
 		// Given
 		when(process.isAlive()).thenReturn(false);
-		when(builder.start()).thenReturn(process);
 		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
@@ -189,7 +189,6 @@ public class MuxerTest extends Fixture {
 		// Given
 		when(process.isAlive()).thenReturn(false);
 		when(process.exitValue()).thenReturn(-1);
-		when(builder.start()).thenReturn(process);
 		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
@@ -206,7 +205,6 @@ public class MuxerTest extends Fixture {
 		// Given
 		when(process.isAlive()).thenReturn(false);
 		when(process.exitValue()).thenReturn(-33);
-		when(builder.start()).thenReturn(process);
 		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
@@ -224,7 +222,6 @@ public class MuxerTest extends Fixture {
 		// Given
 		when(process.isAlive()).thenReturn(true);
 		when(process.waitFor()).thenReturn(-33);
-		when(builder.start()).thenReturn(process);
 		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
@@ -242,7 +239,6 @@ public class MuxerTest extends Fixture {
 		// Given
 		when(process.isAlive()).thenReturn(true);
 		when(process.waitFor()).thenReturn(SUCCESS);
-		when(builder.start()).thenReturn(process);
 		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
@@ -261,7 +257,6 @@ public class MuxerTest extends Fixture {
 		when(process.isAlive()).thenReturn(false);
 		when(process.waitFor()).thenReturn(SUCCESS);
 		when(process.exitValue()).thenReturn(SUCCESS);
-		when(builder.start()).thenReturn(process);
 		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
@@ -281,7 +276,6 @@ public class MuxerTest extends Fixture {
 		when(process.isAlive()).thenReturn(false);
 		when(process.exitValue()).thenReturn(SUCCESS);
 		when(process.waitFor(anyLong(), any())).thenReturn(true);
-		when(builder.start()).thenReturn(process);
 		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
@@ -300,7 +294,6 @@ public class MuxerTest extends Fixture {
 		// Given
 		when(process.isAlive()).thenReturn(true);
 		when(process.waitFor(anyLong(), any())).thenReturn(true);
-		when(builder.start()).thenReturn(process);
 		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
@@ -319,7 +312,6 @@ public class MuxerTest extends Fixture {
 		when(process.isAlive()).thenReturn(false);
 		when(process.exitValue()).thenReturn(-3425);
 		when(process.waitFor(anyLong(), any())).thenReturn(true);
-		when(builder.start()).thenReturn(process);
 		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
