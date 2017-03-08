@@ -38,13 +38,13 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import org.slf4j.Logger;
@@ -211,7 +211,7 @@ public class MuxFs extends MirrorFs {
 		}
 		logger.info(path);
 		Path muxFile = real(path);
-		List<Path> subFiles = getMatchingSubtitles(muxFile);
+		List<Path> subFiles = getMatchingSubFiles(muxFile);
 		if (subFiles.isEmpty()) { // It doesn't need to be muxed, open normally
 			logger.debug("{} doesn't need muxing", path);
 			return super.open(path, filler);
@@ -380,28 +380,24 @@ public class MuxFs extends MirrorFs {
 		return false;
 	}
 
-	private List<Path> getMatchingSubtitles(Path muxFile) {
-		return matchingSubFiles(muxFile).collect(toList());
-	}
-
 	private long getExtraSizeOf(Path muxFile) {
-		return matchingSubFiles(muxFile).reduce(0L, (buf, path) -> buf + path.toFile().length(), (a, b) -> a + b);
+		return getMatchingSubFiles(muxFile).stream().reduce(0L, (buf, path) -> buf + path.toFile().length(), (a, b) -> a + b);
 	}
 
-	private Stream<Path> matchingSubFiles(Path muxFile) {
-		return getFileName(muxFile).map(name -> matchingSubFiles(muxFile.getParent(), name)).orElse(Stream.empty());
+	private List<Path> getMatchingSubFiles(Path muxFile) {
+		return getFileName(muxFile).map(name -> getMatchingSubFiles(muxFile.getParent(), name)).orElse(Collections.emptyList());
 	}
 
-	private Stream<Path> matchingSubFiles(Path parent, String muxName) {
+	private List<Path> getMatchingSubFiles(Path parent, String muxName) {
 		String muxFileNameLower = muxName.toLowerCase().substring(0, muxName.length() - 4);
 		try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(parent)) {
 			return StreamSupport.stream(directoryStream.spliterator(), false).filter(entry -> {
 				String entryName = entry.getFileName().toString();
 				return entryName.endsWith(".srt") && entryName.toLowerCase().startsWith(muxFileNameLower);
-			});
+			}).collect(toList());
 		} catch (IOException e) { // Ignored, non-critical
 			logger.trace("", e);
-			return Stream.empty();
+			return Collections.emptyList();
 		}
 	}
 
