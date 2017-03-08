@@ -1,4 +1,9 @@
 #!/bin/sh
+JAVA_OPTS=""
 
-echo java -cp "/usr/lib/mux2fs/lib/*" se.tfiskgul.mux2fs.Main $@
-java -cp "/usr/lib/mux2fs/lib/*" se.tfiskgul.mux2fs.Main $@
+if [ "${DEBUG}" = "true" ] ; then
+	JAVA_OPTS="${JAVA_OPTS} -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8000"
+fi
+
+echo java ${JAVA_OPTS} -cp "/usr/lib/mux2fs/lib/*" se.tfiskgul.mux2fs.Main $@
+java ${JAVA_OPTS} -cp "/usr/lib/mux2fs/lib/*" se.tfiskgul.mux2fs.Main $@
