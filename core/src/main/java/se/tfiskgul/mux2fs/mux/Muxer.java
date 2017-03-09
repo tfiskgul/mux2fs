@@ -23,11 +23,14 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs.mux;
 
+import static se.tfiskgul.mux2fs.Constants.MUX_WAIT_LOOP_MS;
+import static se.tfiskgul.mux2fs.Constants.SUCCESS;
 import static se.tfiskgul.mux2fs.mux.Muxer.State.FAILED;
 import static se.tfiskgul.mux2fs.mux.Muxer.State.NOT_STARTED;
 import static se.tfiskgul.mux2fs.mux.Muxer.State.RUNNING;
 import static se.tfiskgul.mux2fs.mux.Muxer.State.SUCCESSFUL;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.AccessMode;
 import java.nio.file.Path;
@@ -41,6 +44,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
+
+import se.tfiskgul.mux2fs.fs.base.Sleeper;
 
 /**
  * TODO: Add cancel()
@@ -76,23 +81,25 @@ public class Muxer {
 	private final AtomicReference<State> state = new AtomicReference<Muxer.State>(NOT_STARTED);
 	private volatile Process process;
 	private final ProcessBuilderFactory factory;
+	private final Sleeper sleeper;
 
-	private Muxer(Path mkv, Path srt, Path tempDir, ProcessBuilderFactory factory) {
+	private Muxer(Path mkv, Path srt, Path tempDir, ProcessBuilderFactory factory, Sleeper sleeper) {
 		this.mkv = mkv;
 		this.srt = srt;
 		this.tempDir = tempDir;
 		UUID randomUUID = UUID.randomUUID();
 		this.output = tempDir.resolve(randomUUID.toString() + ".mkv");
 		this.factory = factory;
+		this.sleeper = sleeper;
 	}
 
 	public static Muxer of(Path mkv, Path srt, Path tempDir) {
-		return new Muxer(mkv, srt, tempDir, command -> new ProcessBuilder(command));
+		return new Muxer(mkv, srt, tempDir, command -> new ProcessBuilder(command), (ms) -> Thread.sleep(ms));
 	}
 
 	@VisibleForTesting
-	static Muxer of(Path mkv, Path srt, Path tempDir, ProcessBuilderFactory factory) {
-		return new Muxer(mkv, srt, tempDir, factory);
+	static Muxer of(Path mkv, Path srt, Path tempDir, ProcessBuilderFactory factory, Sleeper sleeper) {
+		return new Muxer(mkv, srt, tempDir, factory, sleeper);
 	}
 
 	/**
@@ -133,17 +140,20 @@ public class Muxer {
 	}
 
 	public State state() {
-		if (state.get() == RUNNING) {
+		State current = state.get();
+		if (current == RUNNING) {
 			if (process != null && !process.isAlive()) { // NOPMD
-				if (process.exitValue() == 0) {
+				if (process.exitValue() == SUCCESS) {
 					state.set(SUCCESSFUL);
+					return SUCCESSFUL;
 				} else {
 					state.set(FAILED);
 					deleteWarn(output);
+					return FAILED;
 				}
 			}
 		}
-		return state.get();
+		return current;
 	}
 
 	// TODO: A better Result class wrapping stdout + stderr as well as the code.
@@ -218,5 +228,18 @@ public class Muxer {
 
 	public Path getMkv() {
 		return mkv;
+	}
+
+	public boolean waitForOutput() {
+		final File file = output.toFile();
+		while (!file.isFile() && state() == RUNNING) {
+			try {
+				sleeper.sleep(MUX_WAIT_LOOP_MS);
+			} catch (InterruptedException e) {
+				logger.info("{} was interrupted", this, e);
+				return false;
+			}
+		}
+		return file.isFile();
 	}
 }

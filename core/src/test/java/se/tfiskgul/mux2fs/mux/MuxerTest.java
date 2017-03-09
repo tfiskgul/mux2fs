@@ -27,6 +27,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -51,18 +52,17 @@ import org.junit.runner.RunWith;
 import org.junit.runners.BlockJUnit4ClassRunner;
 import org.mockito.Matchers;
 import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import se.tfiskgul.mux2fs.Fixture;
+import se.tfiskgul.mux2fs.fs.base.Sleeper;
 import se.tfiskgul.mux2fs.mux.Muxer.ProcessBuilderFactory;
 import se.tfiskgul.mux2fs.mux.Muxer.State;
 
 @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
-@PowerMockIgnore({ "org.powermock.*", "org.mockito.*", "javax.management.*", "org.jacoco.agent.rt.*" })
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ ProcessBuilder.class, Muxer.class })
 @PowerMockRunnerDelegate(BlockJUnit4ClassRunner.class)
@@ -79,6 +79,8 @@ public class MuxerTest extends Fixture {
 	private ProcessBuilderFactory factory;
 	private ProcessBuilder builder;
 	private Process process;
+	private Sleeper sleeper;
+	private Muxer muxer;
 
 	@Before
 	public void beforeTest()
@@ -95,6 +97,8 @@ public class MuxerTest extends Fixture {
 		when(builder.directory(any())).thenReturn(builder);
 		process = mock(Process.class);
 		when(builder.start()).thenReturn(process);
+		sleeper = mock(Sleeper.class);
+		muxer = Muxer.of(mkv, srt, tempDir, factory, sleeper);
 	}
 
 	@Test
@@ -102,7 +106,6 @@ public class MuxerTest extends Fixture {
 			throws Exception {
 		// Given
 		// When
-		Muxer muxer = Muxer.of(mkv, srt, tempDir);
 		// Then
 		assertThat(muxer).isNotNull();
 	}
@@ -112,7 +115,7 @@ public class MuxerTest extends Fixture {
 			throws Exception {
 		doThrow(new NoSuchFileException(null)).when(provider).checkAccess(mkv, AccessMode.READ);
 		exception.expect(NoSuchFileException.class);
-		Muxer.of(mkv, srt, tempDir).start();
+		muxer.start();
 	}
 
 	@Test
@@ -120,7 +123,7 @@ public class MuxerTest extends Fixture {
 			throws Exception {
 		doThrow(new NoSuchFileException(null)).when(provider).checkAccess(srt, AccessMode.READ);
 		exception.expect(NoSuchFileException.class);
-		Muxer.of(mkv, srt, tempDir).start();
+		muxer.start();
 	}
 
 	@Test
@@ -128,14 +131,13 @@ public class MuxerTest extends Fixture {
 			throws Exception {
 		doThrow(new NoSuchFileException(null)).when(provider).checkAccess(tempDir, AccessMode.WRITE);
 		exception.expect(NoSuchFileException.class);
-		Muxer.of(mkv, srt, tempDir).start();
+		muxer.start();
 	}
 
 	@Test
 	public void testStart()
 			throws Exception {
 		// Given
-		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		// When
 		muxer.start();
 		// Then
@@ -151,7 +153,6 @@ public class MuxerTest extends Fixture {
 			throws Exception {
 		// Given
 		when(builder.start()).thenThrow(new IOException());
-		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		// When
 		try {
 			muxer.start();
@@ -173,7 +174,6 @@ public class MuxerTest extends Fixture {
 			throws Exception {
 		// Given
 		when(process.isAlive()).thenReturn(false);
-		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
 		State state = muxer.state();
@@ -189,7 +189,6 @@ public class MuxerTest extends Fixture {
 		// Given
 		when(process.isAlive()).thenReturn(false);
 		when(process.exitValue()).thenReturn(-1);
-		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
 		State state = muxer.state();
@@ -205,7 +204,6 @@ public class MuxerTest extends Fixture {
 		// Given
 		when(process.isAlive()).thenReturn(false);
 		when(process.exitValue()).thenReturn(-33);
-		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
 		int exitCode = muxer.waitFor();
@@ -222,7 +220,6 @@ public class MuxerTest extends Fixture {
 		// Given
 		when(process.isAlive()).thenReturn(true);
 		when(process.waitFor()).thenReturn(-33);
-		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
 		int exitCode = muxer.waitFor();
@@ -239,7 +236,6 @@ public class MuxerTest extends Fixture {
 		// Given
 		when(process.isAlive()).thenReturn(true);
 		when(process.waitFor()).thenReturn(SUCCESS);
-		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
 		int exitCode = muxer.waitFor();
@@ -257,7 +253,6 @@ public class MuxerTest extends Fixture {
 		when(process.isAlive()).thenReturn(false);
 		when(process.waitFor()).thenReturn(SUCCESS);
 		when(process.exitValue()).thenReturn(SUCCESS);
-		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
 		int exitCode = muxer.waitFor();
@@ -276,7 +271,6 @@ public class MuxerTest extends Fixture {
 		when(process.isAlive()).thenReturn(false);
 		when(process.exitValue()).thenReturn(SUCCESS);
 		when(process.waitFor(anyLong(), any())).thenReturn(true);
-		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
 		boolean result = muxer.waitFor(1, NANOSECONDS);
@@ -294,7 +288,6 @@ public class MuxerTest extends Fixture {
 		// Given
 		when(process.isAlive()).thenReturn(true);
 		when(process.waitFor(anyLong(), any())).thenReturn(true);
-		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
 		boolean result = muxer.waitFor(1, NANOSECONDS);
@@ -312,7 +305,6 @@ public class MuxerTest extends Fixture {
 		when(process.isAlive()).thenReturn(false);
 		when(process.exitValue()).thenReturn(-3425);
 		when(process.waitFor(anyLong(), any())).thenReturn(true);
-		Muxer muxer = Muxer.of(mkv, srt, tempDir, factory);
 		muxer.start();
 		// When
 		boolean result = muxer.waitFor(1, NANOSECONDS);
@@ -336,5 +328,23 @@ public class MuxerTest extends Fixture {
 		}
 		// Then
 		assertThat(muxer.state()).isEqualTo(State.FAILED);
+	}
+
+	@Test
+	public void testWaitForOutputFile()
+			throws Exception {
+		// Given
+		muxer.start();
+		Path output = muxer.getOutputForTest();
+		when(process.isAlive()).thenReturn(true);
+		when(output.toFile().isFile()).thenReturn(false, false, true); // 3rd time is the charm!
+		// When
+		boolean result = muxer.waitForOutput();
+		// Then
+		assertThat(result).isTrue();
+		verify(process, times(2)).isAlive();
+		verify(sleeper, times(2)).sleep(anyInt());
+		verify(output.toFile(), times(4)).isFile();
+		assertThat(muxer.state()).isEqualTo(State.RUNNING);
 	}
 }
