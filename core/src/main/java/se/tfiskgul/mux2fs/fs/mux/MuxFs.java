@@ -23,7 +23,6 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs.fs.mux;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static se.tfiskgul.mux2fs.Constants.BUG;
@@ -225,8 +224,8 @@ public class MuxFs extends MirrorFs {
 			}
 			try {
 				muxer.start();
-				muxer.waitFor(50, MILLISECONDS); // Short wait to catch errors earlier than read()
-			} catch (IOException | InterruptedException e) {
+				muxer.waitForOutput();
+			} catch (IOException e) {
 				// Something dun goofed. Second best thing is to open the original file then.
 				logger.warn("Muxing failed, falling back to unmuxed file {}", muxFile, e);
 				// Invalidate the broken muxer. This means the next open will try again, which might not be a good strategy.

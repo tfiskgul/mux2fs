@@ -27,7 +27,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.AdditionalMatchers.gt;
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atMost;
@@ -334,7 +333,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory).from(mkv2, mkv2srt1, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
-		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).waitForOutput();
 		verify(muxer).getOutput();
 		verifyNoMoreInteractions(muxer);
 		verify(filler).setFileHandle(gt(1));
@@ -364,7 +363,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory).from(mkv2, mkv2srt1, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
-		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).waitForOutput();
 		verify(muxer).getOutput();
 		verifyNoMoreInteractions(muxer);
 		verify(filler).setFileHandle(gt(1));
@@ -398,7 +397,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory, times(2)).from(mkv2, mkv2srt1, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer, times(2)).start();
-		verify(muxer, times(2)).waitFor(anyLong(), any());
+		verify(muxer, times(2)).waitForOutput();
 		verify(muxer, times(2)).getOutput();
 		verifyNoMoreInteractions(muxer);
 		verifyNoMoreInteractions(muxer2);
@@ -430,7 +429,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory).from(mkv2, mkv2srt1, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
-		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).waitForOutput();
 		verify(muxer).getOutput();
 		verifyNoMoreInteractions(muxer);
 		verify(muxedFile.toFile()).delete();
@@ -468,7 +467,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory).from(mkv, srt, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
-		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).waitForOutput();
 		verify(muxer).getOutput();
 		verify(muxer).state();
 		verifyNoMoreInteractions(muxer);
@@ -503,7 +502,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory).from(mkv, srt, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
-		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).waitForOutput();
 		verify(muxer).getOutput();
 		verify(muxer).state();
 		verifyNoMoreInteractions(muxer);
@@ -541,7 +540,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory).from(mkv, srt, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
-		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).waitForOutput();
 		verify(muxer).getOutput();
 		verify(muxer).state();
 		verifyNoMoreInteractions(muxer);
@@ -580,7 +579,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory).from(mkv, srt, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
-		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).waitForOutput();
 		verify(muxer).getOutput();
 		verify(muxer).state();
 		verifyNoMoreInteractions(muxer);
@@ -620,7 +619,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory).from(mkv, srt, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
-		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).waitForOutput();
 		verify(muxer).getOutput();
 		verify(muxer, times(4)).state();
 		verifyNoMoreInteractions(muxer);
@@ -667,7 +666,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory).from(mkv, srt, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
-		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).waitForOutput();
 		verify(muxer).getOutput();
 		verify(muxer).state();
 		verifyNoMoreInteractions(muxer);
@@ -715,7 +714,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory).from(mkv, srt, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
-		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).waitForOutput();
 		verify(muxer).getOutput();
 		verify(muxer, times(4)).state();
 		verifyNoMoreInteractions(muxer);
@@ -759,7 +758,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory).from(mkv, srt, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
-		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).waitForOutput();
 		verify(muxer).getOutput();
 		verify(muxer).state();
 		verifyNoMoreInteractions(muxer);
@@ -804,7 +803,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory).from(mkv, srt, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
-		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).waitForOutput();
 		verify(muxer).getOutput();
 		verify(muxer).state();
 		verifyNoMoreInteractions(muxer);
@@ -848,7 +847,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory).from(mkv, srt, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
-		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).waitForOutput();
 		verify(muxer, times(3)).getOutput();
 		verify(muxer).state();
 		verifyNoMoreInteractions(muxer);
@@ -888,7 +887,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory, times(2)).from(mkv, srt, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer, times(2)).start();
-		verify(muxer, times(2)).waitFor(anyLong(), any());
+		verify(muxer, times(2)).waitForOutput();
 		verify(muxer, times(2)).getOutput();
 		verifyNoMoreInteractions(muxer);
 		verifyNoMoreInteractions(muxer2); // The second muxer is never called, result of first one still valid
@@ -948,7 +947,7 @@ public class MuxFsTest extends MirrorFsTest {
 		verify(muxerFactory).from(mkv, srt, tempDir);
 		verifyNoMoreInteractions(muxerFactory);
 		verify(muxer).start();
-		verify(muxer).waitFor(anyLong(), any());
+		verify(muxer).waitForOutput();
 		verify(muxer, atLeast(1)).getOutput();
 		verifyNoMoreInteractions(muxer);
 		verify(filler).setFileHandle(gt(1));
