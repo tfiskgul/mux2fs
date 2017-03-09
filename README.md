@@ -1,4 +1,4 @@
-# mux2fs [![Build Status](https://travis-ci.org/tfiskgul/mux2fs.svg?branch=master)](https://travis-ci.org/tfiskgul/mux2fs)
+# mux2fs [![Build Status](https://travis-ci.org/tfiskgul/mux2fs.svg?branch=master)](https://travis-ci.org/tfiskgul/mux2fs) [![Coverage Status](https://coveralls.io/repos/github/tfiskgul/mux2fs/badge.svg)](https://coveralls.io/github/tfiskgul/mux2fs)
 Muxes subtitles into Matroska files as a FUSE filesystem
 
 Usage
