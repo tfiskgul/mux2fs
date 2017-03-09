@@ -1,4 +1,4 @@
-# mux2fs
+# mux2fs [![Build Status](https://travis-ci.org/tfiskgul/mux2fs.svg?branch=master)](https://travis-ci.org/tfiskgul/mux2fs)
 Muxes subtitles into Matroska files as a FUSE filesystem
 
 Usage
@@ -13,8 +13,8 @@ mux2fs takes the _source_ directory and mirrors it under _mountpoint_, with a fe
 
 Example:
 
-|Source||Mount point||
-|-|-|-|-|
+|Source| |Mount point| |
+|---|---|---|---|
 |Name|Size|Name|Size
 |file1.mkv|700 KiB|file1.mkv|712 KiB
 |file1.eng.srt|12 KiB|
