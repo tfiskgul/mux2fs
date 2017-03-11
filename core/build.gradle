@@ -56,6 +56,10 @@ task copyInstallationTree(dependsOn: [assemble]) {
 	}
 }
 
+task cleandeploy(type: Exec) {
+	commandLine "sudo", "rm", "-r", "/usr/lib/mux2fs/lib"
+}
+
 task deploy(type: Exec, dependsOn: [copyInstallationTree]) {
 	commandLine "sudo", "rsync", "-Kr", "$buildDir/output/install/", "/"
 }
