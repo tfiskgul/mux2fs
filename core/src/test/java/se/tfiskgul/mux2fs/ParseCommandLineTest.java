@@ -37,7 +37,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import se.tfiskgul.mux2fs.CommandLineArguments.Strict;
 
 @SuppressFBWarnings("DMI_HARDCODED_ABSOLUTE_FILENAME")
-public class ParseCommandLineTest {
+public class ParseCommandLineTest extends Fixture {
 
 	@Rule
 	public ExpectedException exception = ExpectedException.none();
@@ -114,10 +114,5 @@ public class ParseCommandLineTest {
 	@Test
 	public void testGetUsage() {
 		assertThat(CommandLineArguments.getUsage()).isNotEmpty();
-	}
-
-	@SuppressWarnings("unchecked")
-	private <T> T[] array(T... array) {
-		return array;
 	}
 }

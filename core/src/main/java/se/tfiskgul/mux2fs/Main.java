@@ -46,10 +46,10 @@ public class Main {
 			Strict arguments = CommandLineArguments.parse(args);
 			if (arguments.isHelp()) {
 				System.out.println(arguments.getHelp());
-				System.exit(0);
+			} else {
+				arguments.validate();
+				mount(arguments);
 			}
-			arguments.validate();
-			mount(arguments);
 		} catch (Exception e) {
 			System.err.println(CommandLineArguments.getUsage());
 			throw e;

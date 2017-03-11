@@ -139,6 +139,11 @@ public abstract class Fixture {
 		return ImmutableSet.<T> builder().add(elements).build();
 	}
 
+	@SuppressWarnings("unchecked")
+	protected <T> T[] array(T... array) {
+		return array;
+	}
+
 	protected <T> Consumer<T> empty() {
 		return (t) -> {
 		};
