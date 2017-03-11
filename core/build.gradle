@@ -1,10 +1,12 @@
 buildscript {
 	repositories {
 		maven { url "https://plugins.gradle.org/m2/" }
+		jcenter()
 	}
 	dependencies {
 		classpath "net.ltgt.gradle:gradle-apt-plugin:0.9"
 		classpath "org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.+"
+		classpath 'org.standardout:gradle-versioneye-plugin:1.+'
 	}
 }
 apply plugin: 'java'
@@ -13,6 +15,7 @@ apply plugin: 'pmd'
 apply plugin: "net.ltgt.apt"
 apply plugin: "jacoco"
 apply plugin: "com.github.kt3k.coveralls"
+apply plugin: 'org.standardout.versioneye'
 
 dependencies {
 	compile group: 'com.github.serceman', name: 'jnr-fuse', version: '+'
