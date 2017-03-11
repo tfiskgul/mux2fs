@@ -36,6 +36,7 @@ import com.beust.jcommander.ParameterException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import se.tfiskgul.mux2fs.CommandLineArguments.Strict;
 
+@SuppressFBWarnings("DMI_HARDCODED_ABSOLUTE_FILENAME")
 public class ParseCommandLineTest {
 
 	@Rule
@@ -48,7 +49,6 @@ public class ParseCommandLineTest {
 	}
 
 	@Test
-	@SuppressFBWarnings("DMI_HARDCODED_ABSOLUTE_FILENAME")
 	public void testParseMandatory() {
 		Strict result = CommandLineArguments.parse(array("--target", "/tmp/mnt", "--source", "/mnt/source", "--tempdir", "/tmp/dir"));
 		assertThat(result.getTarget()).isEqualTo(Paths.get("/tmp/mnt"));
@@ -60,13 +60,19 @@ public class ParseCommandLineTest {
 	public void testHelp() {
 		Strict result = CommandLineArguments.parse(array("-h"));
 		assertThat(result.isHelp()).isTrue();
+		assertThat(result.getHelp()).isNotEmpty();
 	}
 
 	@Test
-	@SuppressFBWarnings("DMI_HARDCODED_ABSOLUTE_FILENAME")
-	public void testValidateDirectoriesExists() {
+	public void testValidateDirectoriesDoesNotExists() {
 		Strict result = CommandLineArguments.parse(array("--target", "/total/nonsense", "--source", "/total/nonsense", "--tempdir", "/total/nonsense"));
 		exception.expect(IllegalArgumentException.class);
+		result.validate();
+	}
+
+	@Test
+	public void testValidateDirectoriesExists() {
+		Strict result = CommandLineArguments.parse(array("--target", "/", "--source", "/", "--tempdir", "/"));
 		result.validate();
 	}
 
@@ -103,6 +109,11 @@ public class ParseCommandLineTest {
 		assertThat(result.getTarget()).isEqualTo(Paths.get("target"));
 		assertThat(result.getTempDir()).isEqualTo(Paths.get("sometempdirpath"));
 		assertThat(result.getPassThroughOptions()).isEmpty();
+	}
+
+	@Test
+	public void testGetUsage() {
+		assertThat(CommandLineArguments.getUsage()).isNotEmpty();
 	}
 
 	@SuppressWarnings("unchecked")
