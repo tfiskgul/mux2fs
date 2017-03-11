@@ -23,6 +23,7 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs.mux;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.fail;
@@ -59,6 +60,7 @@ import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import se.tfiskgul.mux2fs.Fixture;
 import se.tfiskgul.mux2fs.fs.base.Sleeper;
+import se.tfiskgul.mux2fs.mux.Muxer.MuxerFactory;
 import se.tfiskgul.mux2fs.mux.Muxer.ProcessBuilderFactory;
 import se.tfiskgul.mux2fs.mux.Muxer.State;
 
@@ -346,5 +348,81 @@ public class MuxerTest extends Fixture {
 		verify(sleeper, times(2)).sleep(anyInt());
 		verify(output.toFile(), times(4)).isFile();
 		assertThat(muxer.state()).isEqualTo(State.RUNNING);
+	}
+
+	@Test
+	public void testStartThrice()
+			throws Exception {
+		// Given
+		when(process.isAlive()).thenReturn(true);
+		// When
+		muxer.start();
+		muxer.start();
+		muxer.start();
+		// Then
+		assertThat(muxer.state()).isEqualTo(State.RUNNING);
+	}
+
+	@Test
+	public void testWaitForNonStartedMuxer()
+			throws Exception {
+		exception.expect(IllegalStateException.class);
+		muxer.waitFor();
+	}
+
+	@Test
+	public void testWaitFor50millisNonStartedMuxer()
+			throws Exception {
+		exception.expect(IllegalStateException.class);
+		muxer.waitFor(50, MILLISECONDS);
+	}
+
+	@Test
+	public void testWaitForOutputFileInterruptedException()
+			throws Exception {
+		// Given
+		muxer.start();
+		Path output = muxer.getOutputForTest();
+		when(process.isAlive()).thenReturn(true);
+		when(output.toFile().isFile()).thenReturn(false, false, true); // 3rd time is the charm!
+		doThrow(new InterruptedException()).when(sleeper).sleep(anyInt());
+		// When
+		boolean result = muxer.waitForOutput();
+		// Then
+		assertThat(result).isFalse();
+		verify(process).isAlive();
+		verify(sleeper).sleep(anyInt());
+		verify(output.toFile()).isFile();
+	}
+
+	@Test
+	public void testDefaultFactory() {
+		Muxer factory = MuxerFactory.defaultFactory().from(mkv, srt, tempDir);
+		assertThat(factory).isNotNull();
+	}
+
+	@Test
+	public void testEquals() {
+		// Given
+		Muxer another = Muxer.of(mkv, srt, tempDir);
+		// When
+		boolean result = muxer.equals(another);
+		// Then
+		assertThat(result).isFalse();
+	}
+
+	@Test
+	public void testHashCode() {
+		// Given
+		Muxer another = Muxer.of(mkv, srt, tempDir);
+		// When
+		int hashCode = another.hashCode();
+		// Then
+		assertThat(hashCode).isNotEqualTo(muxer.hashCode());
+	}
+
+	@Test
+	public void testGetMkv() {
+		assertThat(muxer.getMkv()).isEqualTo(mkv);
 	}
 }
