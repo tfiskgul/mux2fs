@@ -25,6 +25,7 @@ package se.tfiskgul.mux2fs;
 
 import static java.util.stream.Collectors.toList;
 
+import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -94,7 +95,7 @@ public abstract class CommandLineArguments {
 				Manifest manifest = new Manifest(new URL("jar:" + location.toString() + "!/META-INF/MANIFEST.MF").openStream());
 				Attributes attributes = manifest.getMainAttributes();
 				return Optional.ofNullable(attributes.getValue(attribute));
-			} catch (Exception e) {
+			} catch (RuntimeException | IOException e) {
 				return Optional.empty();
 			}
 		}
