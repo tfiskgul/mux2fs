@@ -55,6 +55,14 @@ import se.tfiskgul.mux2fs.fs.base.Sleeper;
 public class Muxer {
 
 	private static final Logger logger = LoggerFactory.getLogger(Muxer.class);
+	private final Path mkv;
+	private final Path srt;
+	private final Path tempDir;
+	private final Path output;
+	private final AtomicReference<State> state = new AtomicReference<Muxer.State>(NOT_STARTED);
+	private volatile Process process;
+	private final ProcessBuilderFactory factory;
+	private final Sleeper sleeper;
 
 	public enum State {
 		NOT_STARTED, RUNNING, SUCCESSFUL, FAILED
@@ -73,15 +81,6 @@ public class Muxer {
 			return (mkv, srt, tempDir) -> Muxer.of(mkv, srt, tempDir);
 		}
 	}
-
-	private final Path mkv;
-	private final Path srt;
-	private final Path tempDir;
-	private final Path output;
-	private final AtomicReference<State> state = new AtomicReference<Muxer.State>(NOT_STARTED);
-	private volatile Process process;
-	private final ProcessBuilderFactory factory;
-	private final Sleeper sleeper;
 
 	private Muxer(Path mkv, Path srt, Path tempDir, ProcessBuilderFactory factory, Sleeper sleeper) {
 		this.mkv = mkv;

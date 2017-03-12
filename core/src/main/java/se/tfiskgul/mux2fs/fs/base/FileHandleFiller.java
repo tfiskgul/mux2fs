@@ -30,6 +30,9 @@ public interface FileHandleFiller {
 
 	public static class Recorder implements FileHandleFiller {
 
+		private final FileHandleFiller delegate;
+		private int fileHandle = -1;
+
 		public static Recorder wrap(FileHandleFiller filler) {
 			return new Recorder(filler);
 		}
@@ -37,9 +40,6 @@ public interface FileHandleFiller {
 		private Recorder(FileHandleFiller filler) {
 			this.delegate = filler;
 		}
-
-		private final FileHandleFiller delegate;
-		private int fileHandle = -1;
 
 		public int getFileHandle() {
 			return fileHandle;

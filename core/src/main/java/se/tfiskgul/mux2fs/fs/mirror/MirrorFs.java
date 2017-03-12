@@ -69,6 +69,17 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 	private final ConcurrentMap<Integer, FileChannel> openFiles = new ConcurrentHashMap<>(10, 0.75f, 2);
 	private final FileChannelCloser fileChannelCloser;
 
+	protected final Function<Try.CheckedSupplier<Integer, Exception>, Integer> tryCatch = (supplier) -> {
+		return Try.withCatch(supplier, Exception.class).recover(this::translateOrThrow).get();
+	};
+
+	protected final Function<Try.CheckedRunnable<Exception>, Integer> tryCatchRunnable = (runnable) -> {
+		return tryCatch.apply(() -> {
+			runnable.run();
+			return SUCCESS;
+		});
+	};
+
 	public MirrorFs(Path mirroredPath) {
 		super();
 		this.mirroredRoot = mirroredPath.toString();
@@ -84,10 +95,6 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 		this.fileChannelCloser = fileChannelCloser;
 	}
 
-	protected final Function<Try.CheckedSupplier<Integer, Exception>, Integer> tryCatch = (supplier) -> {
-		return Try.withCatch(supplier, Exception.class).recover(this::translateOrThrow).get();
-	};
-
 	protected final int translateOrThrow(Exception exception) {
 		return ExceptionTranslator.<Integer, Exception> of(exception) //
 				.translate(AccessDeniedException.class, e -> -ErrorCodes.EPERM()) //
@@ -100,13 +107,6 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 					return -ErrorCodes.EIO();
 				}).get();
 	}
-
-	protected final Function<Try.CheckedRunnable<Exception>, Integer> tryCatchRunnable = (runnable) -> {
-		return tryCatch.apply(() -> {
-			runnable.run();
-			return SUCCESS;
-		});
-	};
 
 	@Override
 	public String getFSName() {

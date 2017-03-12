@@ -34,7 +34,7 @@ public class JnrFuseUnixFileStat extends UnixFileStatImpl {
 	JnrFuseUnixFileStat() {
 	}
 
-	void fill(FileStat stat) {
+	protected void fill(FileStat stat) {
 		stat.st_dev.set(getDev());
 		stat.st_ino.set(getIno());
 		stat.st_nlink.set(getLinks());

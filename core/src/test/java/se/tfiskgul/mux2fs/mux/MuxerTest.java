@@ -72,9 +72,7 @@ public class MuxerTest extends Fixture {
 
 	@Rule
 	public final ExpectedException exception = ExpectedException.none();
-	private FileSystem fileSystem;
 	private FileSystemProvider provider;
-	private Path root;
 	private Path mkv;
 	private Path srt;
 	private Path tempDir;
@@ -87,9 +85,9 @@ public class MuxerTest extends Fixture {
 	@Before
 	public void beforeTest()
 			throws Exception {
-		fileSystem = mockFileSystem();
+		FileSystem fileSystem = mockFileSystem();
 		provider = fileSystem.provider();
-		root = mockPath("", fileSystem);
+		Path root = mockPath("", fileSystem);
 		mkv = mockPath(root, "mkv.mkv");
 		srt = mockPath(root, "srt.srt");
 		tempDir = mockPath(root, "tmp");
@@ -185,7 +183,6 @@ public class MuxerTest extends Fixture {
 	}
 
 	@Test
-
 	public void testStartStateChangeFailed()
 			throws Exception {
 		// Given

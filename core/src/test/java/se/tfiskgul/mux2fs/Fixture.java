@@ -167,7 +167,7 @@ public abstract class Fixture {
 
 	@AutoValue
 	public abstract static class ExpectedResult {
-		static ExpectedResult create(Exception exception, int value) {
+		private static ExpectedResult create(Exception exception, int value) {
 			return new AutoValue_Fixture_ExpectedResult(exception, value);
 		}
 
