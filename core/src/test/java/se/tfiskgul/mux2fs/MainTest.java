@@ -32,4 +32,10 @@ public class MainTest extends Fixture {
 		exception.expect(FuseException.class);
 		Main.main(array("/", "/tmp", "-o", "tempdir=/tmp,nonsense=invalid"));
 	}
+
+	@Test
+	public void testVersion()
+			throws Exception {
+		Main.main(array("-v"));
+	}
 }

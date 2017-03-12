@@ -115,3 +115,9 @@ test.dependsOn doJacocoOfflineInstrumentation
 versioneye {
 	includePlugins = false
 }
+
+jar {
+	manifest {
+		attributes("Implementation-Version": version)
+	}
+}

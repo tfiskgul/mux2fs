@@ -46,6 +46,8 @@ public class Main {
 			Strict arguments = CommandLineArguments.parse(args);
 			if (arguments.isHelp()) {
 				System.out.println(arguments.getHelp());
+			} else if (arguments.isVersion()) {
+				System.out.println("mux2fs version " + arguments.getVersion());
 			} else {
 				arguments.validate();
 				mount(arguments);

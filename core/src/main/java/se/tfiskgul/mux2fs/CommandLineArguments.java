@@ -25,10 +25,13 @@ package se.tfiskgul.mux2fs;
 
 import static java.util.stream.Collectors.toList;
 
+import java.net.URL;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
@@ -43,7 +46,6 @@ public abstract class CommandLineArguments {
 			+ "Usage: mux2fs --source source --target mountpoint --tempdir tempdir [options]\n" //
 			+ "Try `mux2fs -h' or `mux2fs --help' for more information.";
 
-	// TODO: Add version argument
 	private CommandLineArguments() {
 	}
 
@@ -59,6 +61,8 @@ public abstract class CommandLineArguments {
 		private Path target;
 		@Parameter(names = { "-h", "--help" }, description = "Help", help = true)
 		private boolean help = false;
+		@Parameter(names = { "-v", "--version" }, description = "Version", help = true)
+		private boolean version = false;
 
 		public Path getSource() {
 			return source;
@@ -74,6 +78,25 @@ public abstract class CommandLineArguments {
 
 		public String getHelp() {
 			return USAGE; // TODO: Help chapter
+		}
+
+		public boolean isVersion() {
+			return version;
+		}
+
+		public String getVersion() {
+			return getManifestAttribute("Implementation-Version").orElse("unknown");
+		}
+
+		private Optional<String> getManifestAttribute(String attribute) {
+			try {
+				URL location = getClass().getProtectionDomain().getCodeSource().getLocation();
+				Manifest manifest = new Manifest(new URL("jar:" + location.toString() + "!/META-INF/MANIFEST.MF").openStream());
+				Attributes attributes = manifest.getMainAttributes();
+				return Optional.ofNullable(attributes.getValue(attribute));
+			} catch (Exception e) {
+				return Optional.empty();
+			}
 		}
 	}
 

@@ -115,4 +115,12 @@ public class ParseCommandLineTest extends Fixture {
 	public void testGetUsage() {
 		assertThat(CommandLineArguments.getUsage()).isNotEmpty();
 	}
+
+	@Test
+	public void testGetVersion()
+			throws Exception {
+		Strict result = CommandLineArguments.parse(array("-v"));
+		assertThat(result.isVersion()).isTrue();
+		assertThat(result.getVersion()).isNotEmpty();
+	}
 }
