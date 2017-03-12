@@ -8,7 +8,6 @@ apply plugin: 'org.standardout.versioneye'
 
 dependencies {
 	compile group: 'com.github.serceman', name: 'jnr-fuse', version: '+'
-	compile group: 'joda-time', name: 'joda-time', version: '2.9+'
 	compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7+'
 	compile group: 'ch.qos.logback', name: 'logback-classic', version: '+'
 	compile group: 'ch.qos.logback', name: 'logback-core', version: '+'

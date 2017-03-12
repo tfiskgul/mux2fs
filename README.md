@@ -26,8 +26,8 @@ Example:
 Requirements
 ------
 * Java 8
-* [mkvtoolnix](https://github.com/mbunkus/mkvtoolnix)
-* [fuse](https://github.com/libfuse/libfuse)
+* [mkvtoolnix](https://github.com/mbunkus/mkvtoolnix): Creating and working with Matroska files
+* [fuse](https://github.com/libfuse/libfuse): The reference implementation of the Linux FUSE (Filesystem in Userspace) interface
 
 
 Security implications
@@ -59,6 +59,21 @@ This might be unsafe. It will require an exitsing sudo ticket (or just run sudo 
 	sudo true && gradle deploy
 
 
+Core dependencies
+------
+* [jnr-fuse](https://github.com/SerCeMan/jnr-fuse): jnr-fuse is a FUSE implementation in java using Java Native Runtime (JNR)
+* [jcommander](https://github.com/cbeust/jcommander): Annotation based parameter parsing framework for Java 8
+* [guava](https://github.com/google/guava): Google Core Libraries for Java
+* [cyclops-react](https://github.com/aol/cyclops-react): An advanced, but easy to use, platform for writing functional applications in Java 8
+
+
 Performance
 ------
 Do not expect stellar performance, as performance is neither a goal, nor a strong consideration, of this project. Expect reading somewhere between 500-700 MB/s from a file in RAM. The performance should be good enough to stream media files from disk.
+
+
+Supported platforms
+------
+| Supported platforms |     |      |
+|---------------------|-----|------|
+| Linux               | x64 | x86  |
