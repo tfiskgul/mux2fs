@@ -30,6 +30,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -39,8 +40,6 @@ import static se.tfiskgul.mux2fs.Constants.SUCCESS;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.AccessDeniedException;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
@@ -262,32 +261,21 @@ public class MirrorFsTest extends MirrorFsFixture {
 	}
 
 	@Test
-	public void testOpenNoPerm()
+	public void testAllErrorsForOpen()
 			throws Exception {
-		testOpenThrow(-ErrorCodes.EPERM(), new AccessDeniedException(null));
+		testAllErrors(this::open);
 	}
 
-	@Test
-	public void testOpenNoSuchFile()
-			throws Exception {
-		testOpenThrow(-ErrorCodes.ENOENT(), new NoSuchFileException(null));
-	}
-
-	@Test
-	public void testOpenIoError()
-			throws Exception {
-		testOpenThrow(-ErrorCodes.EIO(), new IOException());
-	}
-
-	private void testOpenThrow(int expected, IOException exception)
+	private void open(ExpectedResult expected)
 			throws IOException {
 		// Given
+		reset(fileSystem.provider());
 		FileHandleFiller filler = mock(FileHandleFiller.class);
-		when(fileSystem.provider().newFileChannel(any(), eq(set(StandardOpenOption.READ)))).thenThrow(exception);
+		when(fileSystem.provider().newFileChannel(any(), eq(set(StandardOpenOption.READ)))).thenThrow(expected.exception());
 		// When
 		int result = fs.open("/", filler);
 		// Then
-		assertThat(result).isEqualTo(expected);
+		assertThat(result).isEqualTo(expected.value());
 		verifyNoMoreInteractions(filler);
 		verify(fileSystem.provider()).newFileChannel(any(), eq(set(StandardOpenOption.READ)));
 		verifyNoMoreInteractions(fileSystem.provider());
