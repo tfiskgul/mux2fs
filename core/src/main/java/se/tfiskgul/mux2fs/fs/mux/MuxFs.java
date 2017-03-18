@@ -24,6 +24,7 @@ SOFTWARE.
 package se.tfiskgul.mux2fs.fs.mux;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static se.tfiskgul.mux2fs.Constants.BUG;
 import static se.tfiskgul.mux2fs.Constants.KILOBYTE;
@@ -43,6 +44,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.function.Consumer;
 import java.util.stream.StreamSupport;
 
@@ -52,6 +56,8 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.cache.RemovalCause;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
@@ -103,19 +109,41 @@ public class MuxFs extends MirrorFs {
 			.expireAfterWrite(20, MINUTES) // FIXME: Mount parameter
 			.build();
 
+	private final Cache<FileInfo, Long> muxedSizeCache = CacheBuilder.newBuilder().build();
+	private final LoadingCache<Path, Long> extraSizeCache = CacheBuilder.newBuilder() //
+			.maximumSize(100) //
+			.expireAfterWrite(10, MINUTES) //
+			.build(new CacheLoader<Path, Long>() {
+
+				@Override
+				public Long load(Path key)
+						throws Exception {
+					return getExtraSizeOf(key);
+				}
+			});
+	private final ScheduledThreadPoolExecutor cleaningPool = new ScheduledThreadPoolExecutor(1);
+	private final ExecutorService executorService;
+
 	public MuxFs(Path mirroredPath, Path tempDir) {
 		super(mirroredPath);
 		this.tempDir = tempDir;
 		this.muxerFactory = MuxerFactory.defaultFactory();
 		this.sleeper = (millis) -> Thread.sleep(millis);
+		executorService = Executors.newCachedThreadPool();
+		cleaningPool.scheduleAtFixedRate(() -> {
+			closedMuxFiles.cleanUp();
+			extraSizeCache.cleanUp();
+			muxedSizeCache.cleanUp();
+		}, 10, 10, SECONDS);
 	}
 
 	@VisibleForTesting
-	MuxFs(Path mirroredPath, Path tempDir, MuxerFactory muxerFactory, Sleeper sleeper, FileChannelCloser fileChannelCloser) {
+	MuxFs(Path mirroredPath, Path tempDir, MuxerFactory muxerFactory, Sleeper sleeper, FileChannelCloser fileChannelCloser, ExecutorService executorService) {
 		super(mirroredPath, fileChannelCloser);
 		this.tempDir = tempDir;
 		this.muxerFactory = muxerFactory;
 		this.sleeper = sleeper;
+		this.executorService = executorService;
 	}
 
 	@Override
@@ -199,7 +227,10 @@ public class MuxFs extends MirrorFs {
 			return super.getattr(path, stat);
 		}
 		Path muxFile = real(path);
-		return tryCatchRunnable.apply(() -> stat.statWithExtraSize(muxFile, getExtraSizeOf(muxFile)));
+		return tryCatchRunnable.apply(() -> {
+			stat.statWithSize(muxFile, info -> Optional.ofNullable(muxedSizeCache.getIfPresent(info)),
+					() -> Try.withCatch(() -> extraSizeCache.get(muxFile)).get());
+		});
 	}
 
 	@Override
@@ -232,22 +263,37 @@ public class MuxFs extends MirrorFs {
 				muxFiles.remove(info, muxer);
 				return super.open(path, filler);
 			}
-			Optional<Path> output = muxer.getOutput();
-			if (!output.isPresent()) {
+			Optional<Path> optionalOutput = muxer.getOutput();
+			if (!optionalOutput.isPresent()) {
 				logger.warn("Muxing failed! muxer.getOutput().isPresent() == false, falling back to unmuxed file {}", muxFile);
 				// Invalidate the broken muxer. This means the next open will try again, which might not be a good strategy.
 				muxFiles.remove(info, muxer);
 				return super.open(path, filler); // Fall back to original if no result
 			}
-			Path muxedPath = output.get();
+			Path output = optionalOutput.get();
 			Recorder recorder = FileHandleFiller.Recorder.wrap(filler);
-			int result = super.openReal(muxedPath, recorder);
+			int result = super.openReal(output, recorder);
 			if (result == SUCCESS) {
 				openMuxFiles.put(recorder.getFileHandle(), new MuxedFile(info, muxer));
+				if (!muxedSizeCache.asMap().containsKey(info)) { // Race, but fine.
+					final Muxer muxerFinal = muxer;
+					executorService.submit(() -> {
+						try {
+							muxerFinal.waitFor();
+						} catch (Exception e) { // Ignored
+						}
+						if (muxerFinal.state() == State.SUCCESSFUL) {
+							long length = output.toFile().length();
+							if (length > 0) {
+								muxedSizeCache.put(info, length);
+							}
+						}
+					});
+				}
 			} else {
-				logger.warn("Failed to open muxed file {}, falling back to unmuxed file {}", muxedPath, muxFile);
+				logger.warn("Failed to open muxed file {}, falling back to unmuxed file {}", output, muxFile);
 				muxFiles.remove(info, muxer);
-				safeDelete(muxedPath);
+				safeDelete(output);
 				result = super.openReal(muxFile, filler);
 			}
 			return result;
@@ -290,6 +336,8 @@ public class MuxFs extends MirrorFs {
 	public void destroy() {
 		super.destroy();
 		logger.info("Cleaning up");
+		cleaningPool.shutdownNow();
+		executorService.shutdownNow();
 		closedMuxFiles.asMap().forEach((info, muxed) -> muxed.getMuxer().getOutput().map(this::safeDelete));
 		closedMuxFiles.invalidateAll();
 		closedMuxFiles.cleanUp();
@@ -379,8 +427,8 @@ public class MuxFs extends MirrorFs {
 		return false;
 	}
 
-	private long getExtraSizeOf(Path muxFile) {
-		return getMatchingSubFiles(muxFile).stream().reduce(0L, (buf, path) -> buf + path.toFile().length(), (a, b) -> a + b);
+	private long getExtraSizeOf(Path mkv) {
+		return getMatchingSubFiles(mkv).stream().reduce(0L, (buf, path) -> buf + path.toFile().length(), (a, b) -> a + b);
 	}
 
 	private List<Path> getMatchingSubFiles(Path muxFile) {

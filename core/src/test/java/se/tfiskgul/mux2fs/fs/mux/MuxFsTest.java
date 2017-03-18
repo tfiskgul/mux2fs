@@ -51,19 +51,27 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
+import org.mockito.Captor;
+import org.mockito.MockitoAnnotations;
+
+import com.google.common.util.concurrent.MoreExecutors;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import ru.serce.jnrfuse.ErrorCodes;
 import se.tfiskgul.mux2fs.fs.base.DirectoryFiller;
 import se.tfiskgul.mux2fs.fs.base.FileChannelCloser;
 import se.tfiskgul.mux2fs.fs.base.FileHandleFiller;
+import se.tfiskgul.mux2fs.fs.base.FileInfo;
 import se.tfiskgul.mux2fs.fs.base.Sleeper;
 import se.tfiskgul.mux2fs.fs.base.StatFiller;
+import se.tfiskgul.mux2fs.fs.base.UnixFileStat;
 import se.tfiskgul.mux2fs.fs.mirror.MirrorFsTest;
 import se.tfiskgul.mux2fs.mux.Muxer;
 import se.tfiskgul.mux2fs.mux.Muxer.MuxerFactory;
@@ -75,6 +83,11 @@ public class MuxFsTest extends MirrorFsTest {
 	private Path tempDir;
 	private MuxerFactory muxerFactory;
 	private Sleeper sleeper;
+	@Captor
+	private ArgumentCaptor<Function<FileInfo, Optional<Long>>> sizeGetterCaptor;
+	@Captor
+	private ArgumentCaptor<Supplier<Long>> extraSizeGetterCaptor;
+	private MuxFs mux2fs;
 
 	@Before
 	@Override
@@ -85,7 +98,9 @@ public class MuxFsTest extends MirrorFsTest {
 		muxerFactory = mock(MuxerFactory.class);
 		sleeper = mock(Sleeper.class);
 		fileChannelCloser = mock(FileChannelCloser.class);
-		fs = new MuxFs(mirrorRoot, tempDir, muxerFactory, sleeper, fileChannelCloser);
+		mux2fs = new MuxFs(mirrorRoot, tempDir, muxerFactory, sleeper, fileChannelCloser, mock(ExecutorService.class));
+		fs = mux2fs;
+		MockitoAnnotations.initMocks(this);
 	}
 
 	@Test
@@ -206,17 +221,21 @@ public class MuxFsTest extends MirrorFsTest {
 			throws Exception {
 		// Given
 		StatFiller stat = mock(StatFiller.class);
-		Path mkv = mockPath("file.mkv");
+		Path mkv = mockPath("file.mkv", 38445L);
 		Path srt1 = mockPath("file.eng.srt", 2893756L);
 		Path srt2 = mockPath("file.der.srt", 2345L);
 		Path srt3 = mockPath("file.swe.srt", 78568L);
 		mockDirectoryStream(mirrorRoot, srt1, mkv, srt3, srt2);
+		mockAttributes(mkv, 758, 38445L);
+		when(stat.statWithSize(eq(mkv), sizeGetterCaptor.capture(), extraSizeGetterCaptor.capture())).thenReturn(mock(UnixFileStat.class));
 		// When
 		int result = fs.getattr("file.mkv", stat);
 		// Then
 		assertThat(result).isEqualTo(SUCCESS);
-		verify(stat).statWithExtraSize(mkv, 2893756L + 2345L + 78568L);
+		verify(stat).statWithSize(eq(mkv), any(), any());
 		verifyNoMoreInteractions(stat);
+		assertThat(sizeGetterCaptor.getValue().apply(FileInfo.of(mkv))).isEmpty();
+		assertThat(extraSizeGetterCaptor.getValue().get()).isEqualTo(2893756L + 2345L + 78568L);
 	}
 
 	@Test
@@ -224,7 +243,7 @@ public class MuxFsTest extends MirrorFsTest {
 			throws Exception {
 		// Given
 		StatFiller stat = mock(StatFiller.class);
-		Path mkv1 = mockPath("file1.mkv");
+		Path mkv1 = mockPath("file1.mkv", 6736L);
 		Path mkv1txt1 = mockPath("file1.txt", 123456789L);
 		Path mkv1srt1 = mockPath("file1.eng.srt", 2893756L);
 		Path mkv1srt2 = mockPath("file1.der.srt", 2345L);
@@ -237,12 +256,16 @@ public class MuxFsTest extends MirrorFsTest {
 		Path mkv4srt2 = mockPath("file4.klingon.srt", 62369L);
 		Path mkv4srt3 = mockPath("file4.elvish.srt", 468L);
 		mockShuffledDirectoryStream(mirrorRoot, mkv1txt1, mkv1srt1, mkv1, mkv1srt3, mkv1srt2, mkv2, mkv3srt1, mkv4, mkv4txt1, mkv4srt1, mkv4srt2, mkv4srt3);
+		mockAttributes(mkv1, 1234, 6736L);
+		when(stat.statWithSize(eq(mkv1), sizeGetterCaptor.capture(), extraSizeGetterCaptor.capture())).thenReturn(mock(UnixFileStat.class));
 		// When
 		int result = fs.getattr("file1.mkv", stat);
 		// Then
 		assertThat(result).isEqualTo(SUCCESS);
-		verify(stat).statWithExtraSize(mkv1, 2893756L + 2345L + 78568L);
+		verify(stat).statWithSize(eq(mkv1), any(), any());
 		verifyNoMoreInteractions(stat);
+		assertThat(sizeGetterCaptor.getValue().apply(FileInfo.of(mkv1))).isEmpty();
+		assertThat(extraSizeGetterCaptor.getValue().get()).isEqualTo(2893756L + 2345L + 78568L);
 	}
 
 	@Test
@@ -923,8 +946,64 @@ public class MuxFsTest extends MirrorFsTest {
 		assertThat(c1 + c2 + c3 + c4 + c5 + c6).isGreaterThanOrEqualTo(2).isLessThanOrEqualTo(4);
 	}
 
-	private long count(Object mock, Method method) {
-		return Mockito.mockingDetails(mock).getInvocations().stream().filter(inv -> inv.getMethod().equals(method)).count();
+	@Test
+	public void testMuxedFileSizeCacheIsEmptyBeforeMuxing()
+			throws Exception {
+		// Given
+		mux2fs = new MuxFs(mirrorRoot, tempDir, muxerFactory, sleeper, fileChannelCloser, MoreExecutors.newDirectExecutorService());
+		fs = mux2fs;
+		StatFiller stat = mock(StatFiller.class);
+		Path mkv = mockPath("file.mkv", 700000000L);
+		Path srt = mockPath("file.srt", 2000L);
+		mockDirectoryStream(mirrorRoot, srt, mkv);
+		when(stat.statWithSize(eq(mkv), sizeGetterCaptor.capture(), extraSizeGetterCaptor.capture())).thenReturn(mock(UnixFileStat.class));
+		mockAttributes(mkv, 234);
+		FileInfo info = FileInfo.of(mkv);
+		// When
+		int result = fs.getattr("file.mkv", stat);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+		verify(stat).statWithSize(eq(mkv), any(), any());
+		verifyNoMoreInteractions(stat);
+		assertThat(sizeGetterCaptor.getValue().apply(info)).isEmpty();
+		assertThat(extraSizeGetterCaptor.getValue().get()).isEqualTo(2000L);
+	}
+
+	@Test
+	public void testMuxedFileSizeIsCachedAfterMuxing()
+			throws Exception {
+		// Given
+		mux2fs = new MuxFs(mirrorRoot, tempDir, muxerFactory, sleeper, fileChannelCloser, MoreExecutors.newDirectExecutorService());
+		fs = mux2fs;
+		StatFiller stat = mock(StatFiller.class);
+		Path mkv = mockPath("file.mkv", 700000000L);
+		Path srt = mockPath("file.srt", 2000L);
+		mockDirectoryStream(mirrorRoot, srt, mkv);
+		when(stat.statWithSize(eq(mkv), sizeGetterCaptor.capture(), extraSizeGetterCaptor.capture())).thenReturn(mock(UnixFileStat.class));
+		mockAttributes(mkv, 24365);
+		FileHandleFiller filler = mock(FileHandleFiller.class);
+		ArgumentCaptor<Integer> handleCaptor = ArgumentCaptor.forClass(Integer.class);
+		doNothing().when(filler).setFileHandle(handleCaptor.capture());
+		Muxer muxer = mock(Muxer.class);
+		when(muxerFactory.from(mkv, srt, tempDir)).thenReturn(muxer);
+		Path muxedFile = mockPath(tempDir, "file1-muxed.mkv", 700000000L + 2000L + 534L);
+		when(muxer.getOutput()).thenReturn(Optional.of(muxedFile));
+		when(fileSystem.provider().newFileChannel(eq(muxedFile), eq(set(StandardOpenOption.READ)))).thenReturn(mock(FileChannel.class));
+		when(muxer.state()).thenReturn(State.SUCCESSFUL);
+		int openResult = fs.open("file.mkv", filler);
+		int closeResult = fs.release("file.mkv", handleCaptor.getValue());
+		// When
+		int result = fs.getattr("file.mkv", stat);
+		// Then
+		assertThat(result).isEqualTo(SUCCESS);
+		assertThat(openResult).isEqualTo(SUCCESS);
+		assertThat(closeResult).isEqualTo(SUCCESS);
+		verify(stat).statWithSize(eq(mkv), any(), any());
+		verifyNoMoreInteractions(stat);
+		Optional<Long> sizeGetter = sizeGetterCaptor.getValue().apply(FileInfo.of(mkv));
+		assertThat(sizeGetter).isNotEmpty();
+		assertThat(sizeGetter).hasValue(700000000L + 2000L + 534L);
+		assertThat(extraSizeGetterCaptor.getValue().get()).isEqualTo(2000L);
 	}
 
 	private File openAndClose(String name, int nonce, long size)

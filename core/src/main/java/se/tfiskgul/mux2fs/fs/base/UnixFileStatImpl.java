@@ -30,6 +30,9 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class UnixFileStatImpl implements UnixFileStat, StatFiller {
 
@@ -190,17 +193,17 @@ public class UnixFileStatImpl implements UnixFileStat, StatFiller {
 		return this;
 	}
 
-	@Override
-	public UnixFileStat statWithExtraSize(Path path, long extraSize)
-			throws IOException {
-		stat(path);
-		size += extraSize;
-		return this;
-	}
-
 	private Instant getInstant(Map<String, Object> map, String string) {
 		FileTime time = (FileTime) map.get(string);
 		return time.toInstant();
 	}
 
+	@Override
+	public UnixFileStat statWithSize(Path path, Function<FileInfo, Optional<Long>> sizeGetter, Supplier<Long> extraSizeGetter)
+			throws IOException {
+		stat(path);
+		FileInfo fileInfo = new FileInfo(ino, modificationTime, inodeTime, size);
+		this.size = sizeGetter.apply(fileInfo).orElse(this.size + extraSizeGetter.get());
+		return this;
+	}
 }

@@ -25,12 +25,15 @@ package se.tfiskgul.mux2fs.fs.base;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 public interface StatFiller {
 
 	UnixFileStat stat(Path path)
 			throws IOException;
 
-	UnixFileStat statWithExtraSize(Path path, long extraSize)
+	UnixFileStat statWithSize(Path path, Function<FileInfo, Optional<Long>> sizeGetter, Supplier<Long> extraSizeGetter)
 			throws IOException;
 }

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 
@@ -27,6 +28,14 @@ public class FileInfo {
 		this.inode = inode;
 		this.mtime = mtime;
 		this.ctime = ctime;
+		this.size = size;
+	}
+
+	public FileInfo(long inode, Instant mtime, Instant ctime, long size) {
+		super();
+		this.inode = inode;
+		this.mtime = FileTime.from(mtime);
+		this.ctime = FileTime.from(ctime);
 		this.size = size;
 	}
 

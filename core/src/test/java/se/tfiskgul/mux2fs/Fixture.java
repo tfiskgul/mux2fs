@@ -31,6 +31,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
@@ -51,6 +52,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+
+import org.mockito.Mockito;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -211,5 +214,26 @@ public abstract class Fixture {
 		when(path.toFile().length()).thenReturn(size);
 		Map<String, Object> attributes = mockAttributes(nonce, Instant.now(), path);
 		when(path.getFileSystem().provider().readAttributes(eq(path), eq("unix:*"))).thenReturn(attributes);
+	}
+
+	protected static class ConsumerRecorder<T> implements Consumer<T> {
+
+		private T value;
+
+		public ConsumerRecorder() {
+		}
+
+		@Override
+		public void accept(T value) {
+			this.value = value;
+		}
+
+		public T get() {
+			return value;
+		}
+	}
+
+	protected long count(Object mock, Method method) {
+		return Mockito.mockingDetails(mock).getInvocations().stream().filter(inv -> inv.getMethod().equals(method)).count();
 	}
 }
