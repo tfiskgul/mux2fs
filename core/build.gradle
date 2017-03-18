@@ -7,14 +7,14 @@ apply plugin: "com.github.kt3k.coveralls"
 apply plugin: 'org.standardout.versioneye'
 
 dependencies {
-	compile group: 'com.github.serceman', name: 'jnr-fuse', version: '+'
+	compile group: 'com.github.serceman', name: 'jnr-fuse', version: '0.4.+'
 	compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7+'
-	compile group: 'ch.qos.logback', name: 'logback-classic', version: '+'
-	compile group: 'ch.qos.logback', name: 'logback-core', version: '+'
+	compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.+'
+	compile group: 'ch.qos.logback', name: 'logback-core', version: '1.2.+'
 	compile group: 'com.google.guava', name: 'guava', version: '21.+'
 	compile group: 'com.beust', name: 'jcommander', version: '1.64'
 	compile group: 'com.google.code.findbugs', name: 'annotations', version: '3.+'
-	compile(group: 'com.aol.simplereact', name: 'cyclops-react', version: '2.0.+') {
+	compile(group: 'com.aol.simplereact', name: 'cyclops-react', version: '2.+') {
 		exclude group: 'org.slf4j', module: 'slf4j-simple'
 	}
 

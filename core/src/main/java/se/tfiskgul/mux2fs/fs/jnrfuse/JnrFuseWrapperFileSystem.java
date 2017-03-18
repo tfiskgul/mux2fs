@@ -127,7 +127,7 @@ public final class JnrFuseWrapperFileSystem extends FuseStubFS implements NamedJ
 			unixFileStat.stat(path);
 			unixFileStat.fill(fuseStat);
 			if (extraSize != 0) {
-				fuseStat.st_size.set(fuseStat.st_size.get() + extraSize);
+				fuseStat.st_size.set(fuseStat.st_size.longValue() + extraSize);
 			}
 			return filter.apply(buf, name, fuseStat, 0);
 		}
