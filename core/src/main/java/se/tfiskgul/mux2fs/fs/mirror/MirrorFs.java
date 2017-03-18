@@ -219,7 +219,7 @@ public class MirrorFs implements se.tfiskgul.mux2fs.fs.base.FileSystem {
 	}
 
 	private final void close(FileChannel fileChannel) {
-		Optional.ofNullable(fileChannel).map(fc -> Try.runWithCatch(() -> fileChannel.close(), IOException.class).onFail(e -> logger.trace("", e)));
+		Optional.ofNullable(fileChannel).map(fc -> Try.runWithCatch(() -> fileChannel.close(), IOException.class).onFail(e -> logger.trace("", e))).get();
 	}
 
 	/**
