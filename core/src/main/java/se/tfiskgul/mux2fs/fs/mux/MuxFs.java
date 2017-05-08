@@ -246,58 +246,8 @@ public class MuxFs extends MirrorFs {
 			logger.debug("{} doesn't need muxing", path);
 			return super.open(path, filler);
 		}
-		return Try.withCatch(() -> FileInfo.of(muxFile), Exception.class).map(info -> {
-			closedMuxFiles.invalidate(info);
-			Muxer muxer = muxerFactory.from(muxFile, subFiles.get(0), tempDir);
-			Muxer previous = muxFiles.putIfAbsent(info, muxer); // Others might be racing the same file
-			if (previous != null) { // They won the race
-				muxer = previous;
-			}
-			try {
-				muxer.start();
-				muxer.waitForOutput();
-			} catch (IOException e) {
-				// Something dun goofed. Second best thing is to open the original file then.
-				logger.warn("Muxing failed, falling back to unmuxed file {}", muxFile, e);
-				// Invalidate the broken muxer. This means the next open will try again, which might not be a good strategy.
-				muxFiles.remove(info, muxer);
-				return super.open(path, filler);
-			}
-			Optional<Path> optionalOutput = muxer.getOutput();
-			if (!optionalOutput.isPresent()) {
-				logger.warn("Muxing failed! muxer.getOutput().isPresent() == false, falling back to unmuxed file {}", muxFile);
-				// Invalidate the broken muxer. This means the next open will try again, which might not be a good strategy.
-				muxFiles.remove(info, muxer);
-				return super.open(path, filler); // Fall back to original if no result
-			}
-			Path output = optionalOutput.get();
-			Recorder recorder = FileHandleFiller.Recorder.wrap(filler);
-			int result = super.openReal(output, recorder);
-			if (result == SUCCESS) {
-				openMuxFiles.put(recorder.getFileHandle(), new MuxedFile(info, muxer));
-				if (!muxedSizeCache.asMap().containsKey(info)) { // Race, but fine.
-					final Muxer muxerFinal = muxer;
-					executorService.submit(() -> {
-						try {
-							muxerFinal.waitFor();
-						} catch (Exception e) { // Ignored
-						}
-						if (muxerFinal.state() == State.SUCCESSFUL) {
-							long length = output.toFile().length();
-							if (length > 0) {
-								muxedSizeCache.put(info, length);
-							}
-						}
-					});
-				}
-			} else {
-				logger.warn("Failed to open muxed file {}, falling back to unmuxed file {}", output, muxFile);
-				muxFiles.remove(info, muxer);
-				safeDelete(output);
-				result = super.openReal(muxFile, filler);
-			}
-			return result;
-		}).recover(this::translateOrThrow).get();
+		return Try.withCatch(() -> FileInfo.of(muxFile), Exception.class).map(info -> //
+		open(path, filler, muxFile, subFiles, info)).recover(this::translateOrThrow).get();
 	}
 
 	@Override
@@ -345,6 +295,62 @@ public class MuxFs extends MirrorFs {
 		openMuxFiles.clear();
 		muxFiles.forEach((fi, muxer) -> muxer.getOutput().map(this::safeDelete));
 		muxFiles.clear();
+	}
+
+	private int open(String path, FileHandleFiller filler, Path muxFile, List<Path> subFiles, FileInfo info) {
+		closedMuxFiles.invalidate(info);
+		Muxer muxer = muxerFactory.from(muxFile, subFiles.get(0), tempDir);
+		Muxer previous = muxFiles.putIfAbsent(info, muxer); // Others might be racing the same file
+		if (previous != null) { // They won the race
+			muxer = previous;
+		}
+		try {
+			muxer.start();
+			muxer.waitForOutput();
+		} catch (IOException e) {
+			// Something dun goofed. Second best thing is to open the original file then.
+			logger.warn("Muxing failed, falling back to unmuxed file {}", muxFile, e);
+			// Invalidate the broken muxer. This means the next open will try again, which might not be a good strategy.
+			muxFiles.remove(info, muxer);
+			return super.open(path, filler);
+		}
+		Optional<Path> optionalOutput = muxer.getOutput();
+		if (!optionalOutput.isPresent()) {
+			logger.warn("Muxing failed! muxer.getOutput().isPresent() == false, falling back to unmuxed file {}", muxFile);
+			// Invalidate the broken muxer. This means the next open will try again, which might not be a good strategy.
+			muxFiles.remove(info, muxer);
+			return super.open(path, filler); // Fall back to original if no result
+		}
+		Path output = optionalOutput.get();
+		Recorder recorder = FileHandleFiller.Recorder.wrap(filler);
+		int result = super.openReal(output, recorder);
+		if (result == SUCCESS) {
+			updateMuxCaches(info, muxer, output, recorder);
+		} else {
+			logger.warn("Failed to open muxed file {}, falling back to unmuxed file {}", output, muxFile);
+			muxFiles.remove(info, muxer);
+			safeDelete(output);
+			result = super.openReal(muxFile, filler);
+		}
+		return result;
+	}
+
+	private void updateMuxCaches(FileInfo info, final Muxer muxer, Path output, Recorder recorder) {
+		openMuxFiles.put(recorder.getFileHandle(), new MuxedFile(info, muxer));
+		if (!muxedSizeCache.asMap().containsKey(info)) { // Race, but fine.
+			executorService.submit(() -> {
+				try {
+					muxer.waitFor();
+				} catch (Exception e) { // Ignored
+				}
+				if (muxer.state() == State.SUCCESSFUL) {
+					long length = output.toFile().length();
+					if (length > 0) {
+						muxedSizeCache.put(info, length);
+					}
+				}
+			});
+		}
 	}
 
 	private boolean safeDelete(MuxedFile file) {
