@@ -68,8 +68,13 @@ public abstract class Fixture {
 		Path path = mock(Path.class);
 		when(path.getFileSystem()).thenReturn(fileSystem);
 		when(path.toString()).thenReturn(name);
-		when(fileSystem.getPath(path.toString(), "/")).thenReturn(path);
-		when(fileSystem.getPath(path.toString(), "/", "..")).thenReturn(path); // Resolve ".." to the same as "."
+		File file = mock(File.class);
+		when(file.exists()).thenReturn(true);
+		when(file.isDirectory()).thenReturn(true);
+		when(path.toFile()).thenReturn(file);
+		when(fileSystem.getPath(name)).thenReturn(path);
+		when(fileSystem.getPath(name, "/")).thenReturn(path);
+		when(fileSystem.getPath(name, "/", "..")).thenReturn(path); // Resolve ".." to the same as "."
 		return path;
 	}
 
@@ -84,12 +89,23 @@ public abstract class Fixture {
 		return mockPath(parent, name, 0L);
 	}
 
+	protected Path mockDir(Path parent, String name) {
+		return mockDir(parent, name, 0L);
+	}
+
+	protected Path mockDir(Path parent, String name, long size) {
+		Path mockPath = mockPath(parent, name, size);
+		when(mockPath.toFile().isDirectory()).thenReturn(true);
+		return mockPath;
+	}
+
 	protected Path mockPath(Path parent, String name, long size) {
 		FileSystem fileSystem = parent.getFileSystem();
 		Path subPath = mock(Path.class);
 		File subPathToFile = mock(File.class);
 		when(subPath.toFile()).thenReturn(subPathToFile);
 		when(subPathToFile.length()).thenReturn(size);
+		when(subPathToFile.exists()).thenReturn(true);
 		when(subPath.getFileSystem()).thenReturn(fileSystem);
 		when(subPath.resolve(anyString())).thenAnswer(invoke -> {
 			String childName = (String) invoke.getArguments()[0];
@@ -98,6 +114,7 @@ public abstract class Fixture {
 		when(subPath.getParent()).thenReturn(parent);
 		when(fileSystem.getPath(parent.toString(), name)).thenReturn(subPath);
 		String fullPath = (parent.toString() + "/" + name).replace("//", "/");
+		when(fileSystem.getPath(fullPath)).thenReturn(subPath);
 		when(subPath.toString()).thenReturn(fullPath);
 		Path subPathFileName = mock(Path.class);
 		when(subPathFileName.toString()).thenReturn(name);
@@ -170,6 +187,7 @@ public abstract class Fixture {
 
 	@AutoValue
 	public abstract static class ExpectedResult {
+
 		private static ExpectedResult create(Exception exception, int value) {
 			return new AutoValue_Fixture_ExpectedResult(exception, value);
 		}

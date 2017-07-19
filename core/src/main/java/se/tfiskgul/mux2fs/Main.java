@@ -40,7 +40,7 @@ public class Main {
 	public static void main(String[] args)
 			throws IOException {
 		try {
-			Strict arguments = CommandLineArguments.parse(args);
+			Strict arguments = new CommandLineArguments().parse(args);
 			if (arguments.isHelp()) {
 				System.out.println(arguments.getHelp());
 			} else if (arguments.isVersion()) {

@@ -25,8 +25,10 @@ package se.tfiskgul.mux2fs;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.nio.file.Paths;
+import java.nio.file.FileSystem;
+import java.nio.file.Path;
 
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -41,44 +43,60 @@ public class ParseCommandLineTest extends Fixture {
 
 	@Rule
 	public ExpectedException exception = ExpectedException.none();
+	private FileSystem fileSystem;
+	private CommandLineArguments commandLineArguments;
+	private Path root;
+	private Path tmp;
+
+	@Before
+	public void before() {
+		fileSystem = mockFileSystem();
+		root = mockPath("/", fileSystem);
+		tmp = mockDir(root, "tmp");
+		commandLineArguments = new CommandLineArguments(fileSystem);
+	}
 
 	@Test
 	public void testNoParametersParseFails() {
 		exception.expect(ParameterException.class);
-		CommandLineArguments.parse(array());
+		commandLineArguments.parse(array());
 	}
 
 	@Test
 	public void testParseMandatory() {
-		Strict result = CommandLineArguments.parse(array("--target", "/tmp/mnt", "--source", "/mnt/source", "--tempdir", "/tmp/dir"));
-		assertThat(result.getTarget()).isEqualTo(Paths.get("/tmp/mnt"));
-		assertThat(result.getSource()).isEqualTo(Paths.get("/mnt/source"));
-		assertThat(result.getTempDir()).isEqualTo(Paths.get("/tmp/dir"));
+		Path target = mockDir(tmp, "target");
+		Path source = mockDir(tmp, "source");
+		Path tmpDir = mockDir(tmp, "dir");
+		Strict result = commandLineArguments.parse(array("--target", "/tmp/target", "--source", "/tmp/source", "--tempdir", "/tmp/dir"));
+		assertThat(result.getTarget()).isEqualTo(target);
+		assertThat(result.getSource()).isEqualTo(source);
+		assertThat(result.getTempDir()).isEqualTo(tmpDir);
 	}
 
 	@Test
 	public void testHelp() {
-		Strict result = CommandLineArguments.parse(array("-h"));
+		Strict result = commandLineArguments.parse(array("-h"));
 		assertThat(result.isHelp()).isTrue();
 		assertThat(result.getHelp()).isNotEmpty();
 	}
 
 	@Test
 	public void testValidateDirectoriesDoesNotExists() {
-		Strict result = CommandLineArguments.parse(array("--target", "/total/nonsense", "--source", "/total/nonsense", "--tempdir", "/total/nonsense"));
+		mockPath(mockPath(root, "total"), "nonsense");
+		Strict result = commandLineArguments.parse(array("--target", "/total/nonsense", "--source", "/total/nonsense", "--tempdir", "/total/nonsense"));
 		exception.expect(IllegalArgumentException.class);
 		result.validate();
 	}
 
 	@Test
 	public void testValidateDirectoriesExists() {
-		Strict result = CommandLineArguments.parse(array("--target", "/", "--source", "/", "--tempdir", "/"));
+		Strict result = commandLineArguments.parse(array("--target", "/", "--source", "/", "--tempdir", "/"));
 		result.validate();
 	}
 
 	@Test
 	public void testParseOptions() {
-		Strict result = CommandLineArguments.parse(array( //
+		Strict result = commandLineArguments.parse(array( //
 				"--target", "/tmp/mnt", "--source", "/mnt/source", "--tempdir", "/tmp/dir", //
 				"-o", "param1=one,param2=two,param3=long param,ro"));
 		assertThat(result.getPassThroughOptions()).containsExactlyInAnyOrder("param1=one", "param2=two", "param3=long param", "ro", "default_permissions");
@@ -86,7 +104,7 @@ public class ParseCommandLineTest extends Fixture {
 
 	@Test
 	public void testParseMultipleOptions() {
-		Strict result = CommandLineArguments.parse(array( //
+		Strict result = commandLineArguments.parse(array( //
 				"--target", "/tmp/mnt", "--source", "/mnt/source", "--tempdir", "/tmp/dir", //
 				"-o", "param1=one,param2=two", "-o", "param3=long param,ro"));
 		assertThat(result.getPassThroughOptions()).containsExactlyInAnyOrder("default_permissions", "param1=one", "param2=two", "param3=long param", "ro");
@@ -94,19 +112,25 @@ public class ParseCommandLineTest extends Fixture {
 
 	@Test
 	public void testFstabStyleManyOptions() {
-		Strict result = CommandLineArguments.parse(array("source", "target", "-o", "rw", "-o", "tempdir=sometempdirpath,one=1,two=2", "-o", "three=3"));
-		assertThat(result.getSource()).isEqualTo(Paths.get("source"));
-		assertThat(result.getTarget()).isEqualTo(Paths.get("target"));
-		assertThat(result.getTempDir()).isEqualTo(Paths.get("sometempdirpath"));
+		Path target = mockPath("target", fileSystem);
+		Path source = mockPath("source", fileSystem);
+		Path tmpDir = mockPath("sometempdirpath", fileSystem);
+		Strict result = commandLineArguments.parse(array("source", "target", "-o", "rw", "-o", "tempdir=sometempdirpath,one=1,two=2", "-o", "three=3"));
+		assertThat(result.getSource()).isEqualTo(source);
+		assertThat(result.getTarget()).isEqualTo(target);
+		assertThat(result.getTempDir()).isEqualTo(tmpDir);
 		assertThat(result.getPassThroughOptions()).containsExactlyInAnyOrder("default_permissions", "ro", "one=1", "two=2", "three=3");
 	}
 
 	@Test
 	public void testArgumentsInFstabStyle() {
-		Strict result = CommandLineArguments.parse(array("source", "target", "-o", "tempdir=sometempdirpath"));
-		assertThat(result.getSource()).isEqualTo(Paths.get("source"));
-		assertThat(result.getTarget()).isEqualTo(Paths.get("target"));
-		assertThat(result.getTempDir()).isEqualTo(Paths.get("sometempdirpath"));
+		Path target = mockPath("target", fileSystem);
+		Path source = mockPath("source", fileSystem);
+		Path tmpDir = mockPath("sometempdirpath", fileSystem);
+		Strict result = commandLineArguments.parse(array("source", "target", "-o", "tempdir=sometempdirpath"));
+		assertThat(result.getSource()).isEqualTo(source);
+		assertThat(result.getTarget()).isEqualTo(target);
+		assertThat(result.getTempDir()).isEqualTo(tmpDir);
 		assertThat(result.getPassThroughOptions()).isEqualTo(CommandLineArguments.mandatoryFuseOptions);
 	}
 
@@ -118,7 +142,7 @@ public class ParseCommandLineTest extends Fixture {
 	@Test
 	public void testGetVersion()
 			throws Exception {
-		Strict result = CommandLineArguments.parse(array("-v"));
+		Strict result = commandLineArguments.parse(array("-v"));
 		assertThat(result.isVersion()).isTrue();
 		assertThat(result.getVersion()).isNotEmpty();
 	}

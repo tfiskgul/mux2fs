@@ -28,6 +28,8 @@ import static java.util.stream.Collectors.toList;
 
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -36,6 +38,8 @@ import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.stream.Stream;
 
+import com.beust.jcommander.IStringConverter;
+import com.beust.jcommander.IStringConverterInstanceFactory;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
@@ -44,16 +48,22 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 
-public abstract class CommandLineArguments {
+public class CommandLineArguments {
 
 	static final List<String> mandatoryFuseOptions = ImmutableList.<String> builder().add("ro").add("default_permissions").build();
-
 	private static final String USAGE = "" //
 			+ "Usage: mux2fs source mountpoint -o tempdir=<tempdir>,[options]\n" //
 			+ "Usage: mux2fs --source source --target mountpoint --tempdir tempdir [options]\n" //
 			+ "Try `mux2fs -h' or `mux2fs --help' for more information.";
+	private final FileSystem filesystem;
 
-	private CommandLineArguments() {
+	public CommandLineArguments() {
+		this.filesystem = FileSystems.getDefault();
+	}
+
+	@VisibleForTesting
+	CommandLineArguments(FileSystem filesystem) {
+		this.filesystem = filesystem;
 	}
 
 	public static String getUsage() {
@@ -134,48 +144,6 @@ public abstract class CommandLineArguments {
 		public List<String> getFuseOptions() {
 			return fuseOptions;
 		}
-
-		public static Strict parse(String[] argsArray) {
-			List<String> args = Arrays.asList(argsArray);
-			Strict strict = tryStrictParse(args).orElseGet(() -> parseFromLax(args));
-			if (strict.options != null) {
-				Options options = new Options();
-				JCommander parseIgnoreUnknown = parseIgnoreUnknown(options, strict.options.stream().map(o -> "-" + o).collect(toList()));
-				strict.passThroughOptions = Stream
-						.concat(mandatoryFuseOptions.stream(), parseIgnoreUnknown.getUnknownOptions().stream().map(o -> o.substring(1, o.length())))
-						.distinct().collect(toImmutableList());
-				Builder<String> builder = ImmutableList.<String> builder();
-				strict.passThroughOptions.forEach((option) -> builder.add("-o").add(option));
-				strict.fuseOptions = builder.build();
-			}
-			return strict;
-		}
-
-		private static Optional<CommandLineArguments.Strict> tryStrictParse(List<String> args) {
-			Strict strict = new Strict();
-			try {
-				CommandLineArguments.parse(strict, args);
-				return Optional.of(strict);
-			} catch (ParameterException e) {
-				return Optional.empty();
-			}
-		}
-
-		private static Strict parseFromLax(List<String> args) {
-			if (args.size() < 3) {
-				throw new ParameterException("Must supply at least 3 parameters!");
-			}
-			List<String> withSourceAndTarget = ImmutableList.<String> builder().add("--source").add(args.get(0)).add("--target").add(args.get(1))
-					.addAll(args.stream().skip(2).iterator()).build();
-			Lax lax = new Lax();
-			CommandLineArguments.parse(lax, withSourceAndTarget);
-			Options options = new Options();
-			parseIgnoreUnknown(options, lax.options.stream().map(o -> "-" + o).collect(toList()));
-			List<String> withTempDir = ImmutableList.<String> builder().addAll(withSourceAndTarget).add("--tempdir").add(options.tempdir).build();
-			Strict strict = new Strict();
-			CommandLineArguments.parse(strict, withTempDir);
-			return strict;
-		}
 	}
 
 	private static class Lax extends Shared {
@@ -187,7 +155,7 @@ public abstract class CommandLineArguments {
 	}
 
 	@Parameters(separators = "=")
-	public static class Options {
+	private static class Options {
 
 		@Parameter(names = "-rw")
 		private boolean rw; // This is not actual rw support, it is only to "absorb" the flag and ignore it.
@@ -201,21 +169,78 @@ public abstract class CommandLineArguments {
 		}
 	}
 
-	private static JCommander parse(Object obj, List<String> args) {
-		JCommander jCommander = new JCommander(obj);
+	public Strict parse(String[] argsArray) {
+		List<String> args = Arrays.asList(argsArray);
+		Strict strict = tryStrictParse(args).orElseGet(() -> parseFromLax(args));
+		if (strict.options != null) {
+			Options options = new Options();
+			JCommander parseIgnoreUnknown = parseIgnoreUnknown(options, strict.options.stream().map(o -> "-" + o).collect(toList()));
+			strict.passThroughOptions = Stream
+					.concat(mandatoryFuseOptions.stream(), parseIgnoreUnknown.getUnknownOptions().stream().map(o -> o.substring(1, o.length()))).distinct()
+					.collect(toImmutableList());
+			Builder<String> builder = ImmutableList.<String> builder();
+			strict.passThroughOptions.forEach((option) -> builder.add("-o").add(option));
+			strict.fuseOptions = builder.build();
+		}
+		return strict;
+	}
+
+	private Optional<CommandLineArguments.Strict> tryStrictParse(List<String> args) {
+		Strict strict = new Strict();
+		try {
+			parse(strict, args);
+			return Optional.of(strict);
+		} catch (ParameterException e) {
+			return Optional.empty();
+		}
+	}
+
+	private Strict parseFromLax(List<String> args) {
+		if (args.size() < 3) {
+			throw new ParameterException("Must supply at least 3 parameters!");
+		}
+		List<String> withSourceAndTarget = ImmutableList.<String> builder().add("--source").add(args.get(0)).add("--target").add(args.get(1))
+				.addAll(args.stream().skip(2).iterator()).build();
+		Lax lax = new Lax();
+		parse(lax, withSourceAndTarget);
+		Options options = new Options();
+		parseIgnoreUnknown(options, lax.options.stream().map(o -> "-" + o).collect(toList()));
+		List<String> withTempDir = ImmutableList.<String> builder().addAll(withSourceAndTarget).add("--tempdir").add(options.tempdir).build();
+		Strict strict = new Strict();
+		CommandLineArguments.this.parse(strict, withTempDir);
+		return strict;
+	}
+
+	private JCommander parse(Object obj, List<String> args) {
+		JCommander jCommander = new JCommander.Builder().addConverterInstanceFactory(new Factory()).addObject(obj).build();
 		jCommander.parse(args.toArray(new String[args.size()]));
 		return jCommander;
 	}
 
-	private static JCommander parseIgnoreUnknown(Object obj, List<String> args) {
-		JCommander jCommander = new JCommander();
+	private JCommander parseIgnoreUnknown(Object obj, List<String> args) {
+		JCommander jCommander = new JCommander.Builder().addConverterInstanceFactory(new Factory()).addObject(obj).build();
 		jCommander.setAcceptUnknownOptions(true);
-		jCommander.addObject(obj);
 		jCommander.parse(args.toArray(new String[args.size()]));
 		return jCommander;
 	}
 
-	public static Strict parse(String[] array) {
-		return Strict.parse(array);
+	public class CustomPathConverter implements IStringConverter<Path> {
+
+		@Override
+		public Path convert(String value) {
+			Path path = filesystem.getPath(value);
+			return path;
+		}
+	}
+
+	public class Factory implements IStringConverterInstanceFactory {
+
+		@Override
+		public IStringConverter<?> getConverterInstance(Parameter parameter, Class<?> forType, String optionName) {
+			if (Path.class.equals(forType)) {
+				return new CustomPathConverter();
+			}
+			return null;
+		}
 	}
 }
