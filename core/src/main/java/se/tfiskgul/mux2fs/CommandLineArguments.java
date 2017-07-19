@@ -194,7 +194,9 @@ public abstract class CommandLineArguments {
 	}
 
 	private static JCommander parse(Object obj, List<String> args) {
-		return new JCommander(obj, args.toArray(new String[args.size()]));
+		JCommander jCommander = new JCommander(obj);
+		jCommander.parse(args.toArray(new String[args.size()]));
+		return jCommander;
 	}
 
 	private static JCommander parseIgnoreUnknown(Object obj, List<String> args) {
