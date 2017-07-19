@@ -121,3 +121,8 @@ jar {
 		attributes("Implementation-Version": version)
 	}
 }
+
+versioneye {
+	includeSubProjects = true
+	exclude configurations.findAll { !it.canBeResolved }*.name as String[]
+}
