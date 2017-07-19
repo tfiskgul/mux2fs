@@ -99,7 +99,6 @@ public class ParseCommandLineTest extends Fixture {
 		assertThat(result.getTarget()).isEqualTo(Paths.get("target"));
 		assertThat(result.getTempDir()).isEqualTo(Paths.get("sometempdirpath"));
 		assertThat(result.getPassThroughOptions()).containsExactlyInAnyOrder("one=1", "two=2", "three=3");
-		assertThat(result.getMux2fsOptions().isRw()).isTrue();
 	}
 
 	@Test

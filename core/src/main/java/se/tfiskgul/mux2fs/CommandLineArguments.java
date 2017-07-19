@@ -130,6 +130,7 @@ public abstract class CommandLineArguments {
 	}
 
 	private static class Lax extends Shared {
+
 		@Parameter(names = "--tempdir", description = "Temporary directory under which to mux files", required = false)
 		private Path tempDir;
 		@Parameter(names = "-o", description = "Options", required = true)
@@ -140,13 +141,9 @@ public abstract class CommandLineArguments {
 	public static class Options {
 
 		@Parameter(names = "-rw")
-		private boolean rw;
+		private boolean rw; // This is not actual rw support, it is only to "absorb" the flag and ignore it.
 		@Parameter(names = "-tempdir")
 		private String tempdir;
-
-		public boolean isRw() {
-			return rw;
-		}
 	}
 
 	public static Strict parse(String[] argsArray) {
