@@ -23,6 +23,7 @@ SOFTWARE.
  */
 package se.tfiskgul.mux2fs;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.toList;
 
 import java.io.IOException;
@@ -33,14 +34,19 @@ import java.util.List;
 import java.util.Optional;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
+import java.util.stream.Stream;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.Parameters;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 
 public abstract class CommandLineArguments {
+
+	static final List<String> mandatoryFuseOptions = ImmutableList.<String> builder().add("ro").add("default_permissions").build();
 
 	private static final String USAGE = "" //
 			+ "Usage: mux2fs source mountpoint -o tempdir=<tempdir>,[options]\n" //
@@ -107,8 +113,8 @@ public abstract class CommandLineArguments {
 		private Path tempDir;
 		@Parameter(names = "-o", description = "Options", required = false)
 		private List<String> options;
-		private Options mux2fsOptions;
-		private List<String> passThroughOptions;
+		private ImmutableList<String> passThroughOptions;
+		private ImmutableList<String> fuseOptions;
 
 		public Path getTempDir() {
 			return tempDir;
@@ -120,12 +126,55 @@ public abstract class CommandLineArguments {
 			validateDirectoryExists(getTempDir());
 		}
 
-		public Options getMux2fsOptions() {
-			return mux2fsOptions;
+		@VisibleForTesting
+		List<String> getPassThroughOptions() {
+			return passThroughOptions;
 		}
 
-		public List<String> getPassThroughOptions() {
-			return passThroughOptions;
+		public List<String> getFuseOptions() {
+			return fuseOptions;
+		}
+
+		public static Strict parse(String[] argsArray) {
+			List<String> args = Arrays.asList(argsArray);
+			Strict strict = tryStrictParse(args).orElseGet(() -> parseFromLax(args));
+			if (strict.options != null) {
+				Options options = new Options();
+				JCommander parseIgnoreUnknown = parseIgnoreUnknown(options, strict.options.stream().map(o -> "-" + o).collect(toList()));
+				strict.passThroughOptions = Stream
+						.concat(mandatoryFuseOptions.stream(), parseIgnoreUnknown.getUnknownOptions().stream().map(o -> o.substring(1, o.length())))
+						.distinct().collect(toImmutableList());
+				Builder<String> builder = ImmutableList.<String> builder();
+				strict.passThroughOptions.forEach((option) -> builder.add("-o").add(option));
+				strict.fuseOptions = builder.build();
+			}
+			return strict;
+		}
+
+		private static Optional<CommandLineArguments.Strict> tryStrictParse(List<String> args) {
+			Strict strict = new Strict();
+			try {
+				CommandLineArguments.parse(strict, args);
+				return Optional.of(strict);
+			} catch (ParameterException e) {
+				return Optional.empty();
+			}
+		}
+
+		private static Strict parseFromLax(List<String> args) {
+			if (args.size() < 3) {
+				throw new ParameterException("Must supply at least 3 parameters!");
+			}
+			List<String> withSourceAndTarget = ImmutableList.<String> builder().add("--source").add(args.get(0)).add("--target").add(args.get(1))
+					.addAll(args.stream().skip(2).iterator()).build();
+			Lax lax = new Lax();
+			CommandLineArguments.parse(lax, withSourceAndTarget);
+			Options options = new Options();
+			parseIgnoreUnknown(options, lax.options.stream().map(o -> "-" + o).collect(toList()));
+			List<String> withTempDir = ImmutableList.<String> builder().addAll(withSourceAndTarget).add("--tempdir").add(options.tempdir).build();
+			Strict strict = new Strict();
+			CommandLineArguments.parse(strict, withTempDir);
+			return strict;
 		}
 	}
 
@@ -146,48 +195,10 @@ public abstract class CommandLineArguments {
 		private String tempdir;
 	}
 
-	public static Strict parse(String[] argsArray) {
-		List<String> args = Arrays.asList(argsArray);
-		Strict strict = CommandLineArguments.tryStrictParse(args).orElseGet(() -> parseFromLax(args));
-		if (strict.options != null) {
-			Options options = new Options();
-			JCommander parseIgnoreUnknown = parseIgnoreUnknown(options, strict.options.stream().map(o -> "-" + o).collect(toList()));
-			strict.mux2fsOptions = options;
-			strict.passThroughOptions = parseIgnoreUnknown.getUnknownOptions().stream().map(o -> o.substring(1, o.length())).collect(toList());
-		}
-		return strict;
-	}
-
 	private static void validateDirectoryExists(Path directory) {
 		if (!directory.toFile().isDirectory()) {
 			throw new IllegalArgumentException(directory + " doesn't exist, or is not a directory!");
 		}
-	}
-
-	private static Optional<CommandLineArguments.Strict> tryStrictParse(List<String> args) {
-		Strict strict = new Strict();
-		try {
-			parse(strict, args);
-			return Optional.of(strict);
-		} catch (ParameterException e) {
-			return Optional.empty();
-		}
-	}
-
-	private static Strict parseFromLax(List<String> args) {
-		if (args.size() < 3) {
-			throw new ParameterException("Must supply at least 3 parameters!");
-		}
-		List<String> withSourceAndTarget = ImmutableList.<String> builder().add("--source").add(args.get(0)).add("--target").add(args.get(1))
-				.addAll(args.stream().skip(2).iterator()).build();
-		Lax lax = new Lax();
-		parse(lax, withSourceAndTarget);
-		Options options = new Options();
-		parseIgnoreUnknown(options, lax.options.stream().map(o -> "-" + o).collect(toList()));
-		List<String> withTempDir = ImmutableList.<String> builder().addAll(withSourceAndTarget).add("--tempdir").add(options.tempdir).build();
-		Strict strict = new Strict();
-		parse(strict, withTempDir);
-		return strict;
 	}
 
 	private static JCommander parse(Object obj, List<String> args) {
@@ -202,5 +213,9 @@ public abstract class CommandLineArguments {
 		jCommander.addObject(obj);
 		jCommander.parse(args.toArray(new String[args.size()]));
 		return jCommander;
+	}
+
+	public static Strict parse(String[] array) {
+		return Strict.parse(array);
 	}
 }

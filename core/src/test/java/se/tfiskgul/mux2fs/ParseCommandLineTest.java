@@ -81,7 +81,7 @@ public class ParseCommandLineTest extends Fixture {
 		Strict result = CommandLineArguments.parse(array( //
 				"--target", "/tmp/mnt", "--source", "/mnt/source", "--tempdir", "/tmp/dir", //
 				"-o", "param1=one,param2=two,param3=long param,ro"));
-		assertThat(result.getPassThroughOptions()).containsExactlyInAnyOrder("param1=one", "param2=two", "param3=long param", "ro");
+		assertThat(result.getPassThroughOptions()).containsExactlyInAnyOrder("param1=one", "param2=two", "param3=long param", "ro", "default_permissions");
 	}
 
 	@Test
@@ -89,7 +89,7 @@ public class ParseCommandLineTest extends Fixture {
 		Strict result = CommandLineArguments.parse(array( //
 				"--target", "/tmp/mnt", "--source", "/mnt/source", "--tempdir", "/tmp/dir", //
 				"-o", "param1=one,param2=two", "-o", "param3=long param,ro"));
-		assertThat(result.getPassThroughOptions()).containsExactlyInAnyOrder("param1=one", "param2=two", "param3=long param", "ro");
+		assertThat(result.getPassThroughOptions()).containsExactlyInAnyOrder("default_permissions", "param1=one", "param2=two", "param3=long param", "ro");
 	}
 
 	@Test
@@ -98,7 +98,7 @@ public class ParseCommandLineTest extends Fixture {
 		assertThat(result.getSource()).isEqualTo(Paths.get("source"));
 		assertThat(result.getTarget()).isEqualTo(Paths.get("target"));
 		assertThat(result.getTempDir()).isEqualTo(Paths.get("sometempdirpath"));
-		assertThat(result.getPassThroughOptions()).containsExactlyInAnyOrder("one=1", "two=2", "three=3");
+		assertThat(result.getPassThroughOptions()).containsExactlyInAnyOrder("default_permissions", "ro", "one=1", "two=2", "three=3");
 	}
 
 	@Test
@@ -107,7 +107,7 @@ public class ParseCommandLineTest extends Fixture {
 		assertThat(result.getSource()).isEqualTo(Paths.get("source"));
 		assertThat(result.getTarget()).isEqualTo(Paths.get("target"));
 		assertThat(result.getTempDir()).isEqualTo(Paths.get("sometempdirpath"));
-		assertThat(result.getPassThroughOptions()).isEmpty();
+		assertThat(result.getPassThroughOptions()).isEqualTo(CommandLineArguments.mandatoryFuseOptions);
 	}
 
 	@Test

@@ -28,9 +28,6 @@ import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
-
 import se.tfiskgul.mux2fs.CommandLineArguments.Strict;
 import se.tfiskgul.mux2fs.fs.jnrfuse.FileSystemSafetyWrapper;
 import se.tfiskgul.mux2fs.fs.jnrfuse.JnrFuseWrapperFileSystem;
@@ -62,16 +59,11 @@ public class Main {
 		MuxFs fs = new MuxFs(arguments.getSource(), arguments.getTempDir());
 		FileSystemSafetyWrapper wrapped = new FileSystemSafetyWrapper(new JnrFuseWrapperFileSystem(fs));
 		try {
-			logger.debug("Fuse options {}", arguments.getPassThroughOptions());
-			wrapped.mount(arguments.getTarget(), true, false, getFuseOptions(arguments));
+			logger.debug("Fuse options {}", arguments.getFuseOptions());
+			wrapped.mount(arguments.getTarget(), true, false, arguments.getFuseOptions().toArray(new String[arguments.getFuseOptions().size()]));
 		} finally {
 			wrapped.umount();
 		}
 	}
 
-	private static String[] getFuseOptions(Strict arguments) {
-		Builder<String> builder = ImmutableList.<String> builder();
-		arguments.getPassThroughOptions().forEach((option) -> builder.add("-o").add(option));
-		return builder.build().toArray(new String[] {});
-	}
 }
