@@ -33,7 +33,7 @@ import se.tfiskgul.mux2fs.fs.jnrfuse.FileSystemSafetyWrapper;
 import se.tfiskgul.mux2fs.fs.jnrfuse.JnrFuseWrapperFileSystem;
 import se.tfiskgul.mux2fs.fs.mux.MuxFs;
 
-public class Main {
+public abstract class Main {
 
 	private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
@@ -65,5 +65,4 @@ public class Main {
 			wrapped.umount();
 		}
 	}
-
 }
