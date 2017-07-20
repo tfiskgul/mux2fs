@@ -87,5 +87,4 @@ public class FileInfo {
 	public String toString() {
 		return "FileInfo [inode=" + inode + ", mtime=" + mtime + ", ctime=" + ctime + ", size=" + size + "]";
 	}
-
 }

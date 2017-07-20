@@ -21,23 +21,35 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
-package se.tfiskgul.mux2fs;
+package se.tfiskgul.mux2fs.mux;
 
-import ru.serce.jnrfuse.ErrorCodes;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
-public final class Constants {
+import org.junit.Test;
 
-	public static final int BUG = -ErrorCodes.ENOSYS();
-	public static final int FILE_HANDLE_START_NO = 32;
-	public static final int SUCCESS = 0;
-	public static final int MUX_WAIT_LOOP_MS = 500;
-	// Sizes
-	public static final long KILOBYTE = 1024;
-	public static final long MEGABYTE = 1024 * KILOBYTE;
-	public static final long GIGABYTE = 1024 * MEGABYTE;
-	public static final int THREAD_BUF_SIZE = (int) (128 * KILOBYTE);
+import se.tfiskgul.mux2fs.fs.base.FileInfo;
 
-	private Constants() {
-		throw new AssertionError();
+public class MuxedFileTest {
+
+	@Test
+	public void testEquals() {
+		FileInfo info = mock(FileInfo.class);
+		Muxer muxer = mock(Muxer.class);
+		MuxedFile muxedFile = new MuxedFile(info, muxer);
+		MuxedFile muxedFile2 = new MuxedFile(info, muxer);
+		assertThat(muxedFile).isEqualTo(muxedFile);
+		assertThat(muxedFile).isEqualTo(muxedFile2);
+		assertThat(muxedFile).isNotEqualTo(null);
+		assertThat(muxedFile).isNotEqualTo(info);
+	}
+
+	@Test
+	public void testHashCode() {
+		FileInfo info = mock(FileInfo.class);
+		Muxer muxer = mock(Muxer.class);
+		MuxedFile muxedFile = new MuxedFile(info, muxer);
+		MuxedFile muxedFile2 = new MuxedFile(info, muxer);
+		assertThat(muxedFile.hashCode()).isEqualTo(muxedFile2.hashCode());
 	}
 }

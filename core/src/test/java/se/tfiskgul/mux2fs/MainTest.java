@@ -1,11 +1,14 @@
 package se.tfiskgul.mux2fs;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import com.beust.jcommander.ParameterException;
 
+import ru.serce.jnrfuse.ErrorCodes;
 import ru.serce.jnrfuse.FuseException;
 
 public class MainTest extends Fixture {
@@ -37,5 +40,10 @@ public class MainTest extends Fixture {
 	public void testVersion()
 			throws Exception {
 		Main.main(array("-v"));
+	}
+
+	@Test
+	public void testBugCode() {
+		assertThat(Constants.BUG).isEqualTo(-ErrorCodes.ENOSYS());
 	}
 }
