@@ -24,6 +24,8 @@ SOFTWARE.
 package se.tfiskgul.mux2fs;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
@@ -38,7 +40,7 @@ import com.beust.jcommander.ParameterException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import se.tfiskgul.mux2fs.CommandLineArguments.Strict;
 
-@SuppressFBWarnings("DMI_HARDCODED_ABSOLUTE_FILENAME")
+@SuppressFBWarnings({ "DMI_HARDCODED_ABSOLUTE_FILENAME", "RV_RETURN_VALUE_IGNORED_BAD_PRACTICE" })
 public class ParseCommandLineTest extends Fixture {
 
 	@Rule
@@ -145,5 +147,19 @@ public class ParseCommandLineTest extends Fixture {
 		Strict result = commandLineArguments.parse(array("-v"));
 		assertThat(result.isVersion()).isTrue();
 		assertThat(result.getVersion()).isNotEmpty();
+	}
+
+	@Test
+	public void testTempDirIsAutomaticallyCreatedIfNotExists() {
+		mockDir(tmp, "target");
+		mockDir(tmp, "source");
+		Path tmpDir = mockDir(tmp, "dir");
+		when(tmpDir.toFile().exists()).thenReturn(false);
+		when(tmpDir.toFile().mkdirs()).thenReturn(true);
+		Strict result = commandLineArguments.parse(array("--target", "/tmp/target", "--source", "/tmp/source", "--tempdir", "/tmp/dir"));
+		// When
+		result.validate();
+		// Then
+		verify(tmpDir.toFile()).mkdirs();
 	}
 }

@@ -26,6 +26,7 @@ package se.tfiskgul.mux2fs;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.toList;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.FileSystem;
@@ -37,6 +38,9 @@ import java.util.Optional;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.stream.Stream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.IStringConverterInstanceFactory;
@@ -50,6 +54,7 @@ import com.google.common.collect.ImmutableList.Builder;
 
 public class CommandLineArguments {
 
+	private static final Logger logger = LoggerFactory.getLogger(CommandLineArguments.class);
 	static final List<String> mandatoryFuseOptions = ImmutableList.<String> builder().add("ro").add("default_permissions").build();
 	private static final String USAGE = "" //
 			+ "Usage: mux2fs source mountpoint -o tempdir=<tempdir>,[options]\n" //
@@ -133,7 +138,14 @@ public class CommandLineArguments {
 		public void validate() {
 			validateDirectoryExists(getSource());
 			validateDirectoryExists(getTarget());
-			validateDirectoryExists(getTempDir());
+			File tmpDirfile = tempDir.toFile();
+			if (!tmpDirfile.exists()) {
+				boolean mkdirs = tmpDirfile.mkdirs();
+				if (!mkdirs) {
+					logger.warn("Unable to automatically create directory {}", tempDir);
+				}
+			}
+			validateDirectoryExists(tempDir);
 		}
 
 		@VisibleForTesting
