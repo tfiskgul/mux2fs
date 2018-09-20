@@ -4,7 +4,6 @@ apply plugin: 'pmd'
 apply plugin: "net.ltgt.apt"
 apply plugin: "jacoco"
 apply plugin: "com.github.kt3k.coveralls"
-apply plugin: 'org.standardout.versioneye'
 
 dependencies {
 	compile group: 'com.github.serceman', name: 'jnr-fuse', version: '0.4.+'
@@ -111,18 +110,8 @@ task doJacocoOfflineInstrumentation(dependsOn: [ classes, project.configurations
 
 test.dependsOn doJacocoOfflineInstrumentation
 
-versioneye {
-	includePlugins = false
-	exclude 'jacocoAgent', 'jacocoAnt', 'pmd'
-}
-
 jar {
 	manifest {
 		attributes("Implementation-Version": version)
 	}
-}
-
-versioneye {
-	includeSubProjects = true
-	exclude configurations.findAll { !it.canBeResolved }*.name as String[]
 }

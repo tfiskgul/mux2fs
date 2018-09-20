@@ -6,7 +6,6 @@ buildscript {
 	dependencies {
 		classpath "net.ltgt.gradle:gradle-apt-plugin:0.10"
 		classpath "org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.+"
-		classpath 'org.standardout:gradle-versioneye-plugin:1.+'
 	}
 }
 group = "se.tfiskgul.mux2fs"
